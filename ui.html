@@ -1,288 +1,349 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
   <style>
+    :root {
+      --background: oklch(0.99 0.002 80);
+      --foreground: oklch(0.18 0.005 80);
+      --muted: oklch(0.96 0.003 80);
+      --muted-foreground: oklch(0.52 0.005 80);
+      --border: oklch(0.9 0.004 80);
+      --input: oklch(0.88 0.004 80);
+      --ring: oklch(0.78 0.17 80);
+      --primary: oklch(0.78 0.17 80);
+      --primary-foreground: oklch(0.18 0.005 80);
+      --primary-hover: oklch(0.82 0.17 80);
+      --success: oklch(0.7 0.15 155);
+      --destructive: oklch(0.62 0.21 25);
+      --radius: 0.625rem;
+    }
+
+    [data-theme="dark"] {
+      --background: oklch(0.16 0.005 80);
+      --foreground: oklch(0.98 0.002 80);
+      --muted: oklch(0.22 0.005 80);
+      --muted-foreground: oklch(0.65 0.005 80);
+      --border: oklch(0.28 0.006 80);
+      --input: oklch(0.32 0.006 80);
+      --ring: oklch(0.78 0.17 80);
+      --primary: oklch(0.78 0.17 80);
+      --primary-foreground: oklch(0.18 0.005 80);
+      --primary-hover: oklch(0.82 0.17 80);
+      --success: oklch(0.65 0.15 155);
+      --destructive: oklch(0.65 0.21 25);
+    }
+
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
 
+    html, body {
+      height: 100%;
+    }
+
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0A0A0A;
-      color: #ffffff;
-      padding: 0;
-      height: 100vh;
+      font-family: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+      background: var(--background);
+      color: var(--foreground);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .app {
       display: flex;
-      align-items: center;
-      justify-content: center;
+      flex-direction: column;
+      height: 100vh;
+      padding: 20px;
+      gap: 20px;
     }
 
-    .container {
-      width: 400px;
-      background: #1A1A1A;
-      border-radius: 16px;
-      padding: 32px;
-      border: 1px solid rgba(245, 184, 0, 0.15);
-      box-shadow: 0px 8px 32px rgba(0, 0, 0, 0.4), 0px 0px 1px rgba(245, 184, 0, 0.2);
-    }
-
+    /* Header */
     .header {
-      margin-bottom: 32px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
     }
 
-    h1 {
-      font-size: 28px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      line-height: 36px;
-      letter-spacing: -0.5px;
-      color: #FFFFFF;
+    .title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--foreground);
+      line-height: 1.2;
     }
 
     .subtitle {
-      font-size: 14px;
-      color: #B8B8B8;
-      font-weight: 400;
-      line-height: 20px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 4px;
     }
 
-    .options {
-      margin-bottom: 32px;
-    }
-
-    .option-item {
-      display: flex;
-      justify-content: space-between;
+    /* Theme toggle */
+    .theme-toggle {
+      display: inline-flex;
       align-items: center;
-      padding: 16px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .option-item:last-child {
-      border-bottom: none;
-    }
-
-    .option-item:hover {
-      background: rgba(245, 184, 0, 0.05);
-      margin: 0 -12px;
-      padding: 16px 12px;
-      border-radius: 8px;
-    }
-
-    .option-item.disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .option-item.disabled:hover {
+      justify-content: center;
+      width: 32px;
+      height: 32px;
       background: transparent;
-      margin: 0;
-      padding: 16px 0;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) - 2px);
+      color: var(--muted-foreground);
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .theme-toggle:hover {
+      background: var(--muted);
+      color: var(--foreground);
+    }
+
+    .theme-toggle:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+
+    .theme-toggle svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
+    /* Options */
+    .options {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: calc(var(--radius) - 2px);
+      cursor: pointer;
+      transition: background-color 0.12s ease;
+      user-select: none;
+    }
+
+    .option:hover {
+      background: var(--muted);
+    }
+
+    .option.disabled {
+      opacity: 0.5;
+      pointer-events: none;
     }
 
     .option-left {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
+      min-width: 0;
     }
 
     .option-icon {
-      width: 20px;
-      height: 20px;
-      color: #F5B800;
+      width: 16px;
+      height: 16px;
+      color: var(--muted-foreground);
       flex-shrink: 0;
     }
 
     .option-label {
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 500;
-      color: #FFFFFF;
-      line-height: 22px;
+      color: var(--foreground);
     }
 
-    /* Toggle Switch */
-    .toggle {
-      width: 52px;
-      height: 28px;
-      background: #404040;
-      border-radius: 14px;
+    /* Switch (shadcn style) */
+    .switch {
       position: relative;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      width: 32px;
+      height: 18px;
+      background: var(--input);
+      border-radius: 999px;
+      transition: background-color 0.15s ease;
       flex-shrink: 0;
     }
 
-    .toggle.on {
-      background: linear-gradient(135deg, #F5B800 0%, #FFD700 100%);
-      box-shadow: 0px 2px 8px rgba(245, 184, 0, 0.3);
+    .switch.on {
+      background: var(--primary);
     }
 
-    .toggle-knob {
-      width: 24px;
-      height: 24px;
-      background: #FFFFFF;
-      border-radius: 12px;
+    .switch-thumb {
       position: absolute;
       top: 2px;
       left: 2px;
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+      width: 14px;
+      height: 14px;
+      background: var(--background);
+      border-radius: 999px;
+      box-shadow: 0 1px 2px oklch(0 0 0 / 0.1);
+      transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .toggle.on .toggle-knob {
-      transform: translateX(24px);
+    .switch.on .switch-thumb {
+      transform: translateX(14px);
+      background: var(--primary-foreground);
     }
 
-    /* Progress Section */
-    .progress-container {
-      margin-bottom: 24px;
+    /* Progress */
+    .progress {
       display: none;
+      flex-direction: column;
+      gap: 6px;
     }
 
-    .progress-container.show {
-      display: block;
+    .progress.show {
+      display: flex;
     }
 
     .progress-label {
-      font-size: 13px;
-      color: #B8B8B8;
-      margin-bottom: 8px;
+      font-size: 11px;
+      color: var(--muted-foreground);
       font-weight: 500;
     }
 
     .progress-bar {
       width: 100%;
-      height: 6px;
-      background: #252525;
-      border-radius: 3px;
+      height: 4px;
+      background: var(--muted);
+      border-radius: 999px;
       overflow: hidden;
     }
 
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, #F5B800, #FFD700);
-      border-radius: 3px;
-      transition: width 0.3s ease;
       width: 0%;
+      background: var(--primary);
+      border-radius: 999px;
+      transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     /* Button */
-    .btn-strip {
+    .btn {
       width: 100%;
-      height: 48px;
-      background: linear-gradient(135deg, #F5B800 0%, #FFD700 100%);
-      color: #0A0A0A;
+      height: 36px;
+      background: var(--primary);
+      color: var(--primary-foreground);
       border: none;
-      border-radius: 12px;
-      padding: 12px 24px;
-      font-size: 16px;
+      border-radius: calc(var(--radius) - 2px);
+      font-size: 13px;
       font-weight: 600;
-      letter-spacing: 0.3px;
+      font-family: inherit;
       cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0px 4px 16px rgba(245, 184, 0, 0.3);
+      transition: background-color 0.12s ease, opacity 0.12s ease;
     }
 
-    .btn-strip:hover {
-      transform: translateY(-2px);
-      box-shadow: 0px 6px 20px rgba(245, 184, 0, 0.4);
-      background: linear-gradient(135deg, #FFD700 0%, #FFE033 100%);
+    .btn:hover:not(:disabled) {
+      background: var(--primary-hover);
     }
 
-    .btn-strip:active {
-      transform: translateY(0px);
-      box-shadow: 0px 2px 8px rgba(245, 184, 0, 0.3);
+    .btn:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
     }
 
-    .btn-strip:disabled {
-      background: #404040;
-      color: #808080;
-      box-shadow: none;
-      cursor: not-allowed;
+    .btn:disabled {
       opacity: 0.5;
-      transform: none;
+      cursor: not-allowed;
     }
 
-    /* Message Toast */
-    .message {
+    /* Toast */
+    .toast {
       position: fixed;
-      top: 16px;
+      top: 12px;
       left: 50%;
-      transform: translateX(-50%);
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 14px;
+      transform: translateX(-50%) translateY(-8px);
+      padding: 8px 14px;
+      border-radius: calc(var(--radius) - 2px);
+      font-size: 12px;
       font-weight: 500;
+      background: var(--foreground);
+      color: var(--background);
+      border: 1px solid var(--border);
       opacity: 0;
-      transition: opacity 0.3s ease;
-      z-index: 1000;
-      box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.3);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 50;
+      max-width: calc(100% - 24px);
+      text-align: center;
     }
 
-    .message.show {
+    .toast.show {
       opacity: 1;
+      transform: translateX(-50%) translateY(0);
     }
 
-    .message.success {
-      background: #10b981;
-      color: white;
+    .toast.success {
+      background: var(--success);
+      color: oklch(0.15 0 0);
+      border-color: transparent;
     }
 
-    .message.error {
-      background: #ef4444;
-      color: white;
-    }
-
-    /* Icons (inline SVG) */
-    .icon-component {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
+    .toast.error {
+      background: var(--destructive);
+      color: oklch(0.99 0 0);
+      border-color: transparent;
     }
   </style>
 </head>
 <body>
-  <div class="message" id="message"></div>
+  <div class="toast" id="toast"></div>
 
-  <div class="container">
+  <div class="app">
     <div class="header">
-      <h1>Strip That Out</h1>
-      <div class="subtitle">Select an object or frame</div>
+      <div>
+        <div class="title">Strip That Out</div>
+        <div class="subtitle">Select an object or frame</div>
+      </div>
+      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" type="button">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2"></path>
+          <path d="M12 20v2"></path>
+          <path d="m4.93 4.93 1.41 1.41"></path>
+          <path d="m17.66 17.66 1.41 1.41"></path>
+          <path d="M2 12h2"></path>
+          <path d="M20 12h2"></path>
+          <path d="m6.34 17.66-1.41 1.41"></path>
+          <path d="m19.07 4.93-1.41 1.41"></path>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
     </div>
 
     <div class="options" id="options">
-      <div class="option-item" onclick="toggleOption('detach')">
-        <div class="option-left">
-          <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
-          </svg>
-          <div class="option-label">Detach Components</div>
-        </div>
-        <div class="toggle on" id="toggle-detach">
-          <div class="toggle-knob"></div>
-        </div>
-      </div>
-
-      <div class="option-item" onclick="toggleOption('styles')">
+      <div class="option" onclick="toggleOption('styles')">
         <div class="option-left">
           <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
           </svg>
           <div class="option-label">Detach Styles</div>
         </div>
-        <div class="toggle on" id="toggle-styles">
-          <div class="toggle-knob"></div>
+        <div class="switch on" id="toggle-styles" role="switch" aria-checked="true">
+          <div class="switch-thumb"></div>
         </div>
       </div>
 
-      <div class="option-item" onclick="toggleOption('tokens')">
+      <div class="option" onclick="toggleOption('tokens')">
         <div class="option-left">
           <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="16 18 22 12 16 6"></polyline>
@@ -290,196 +351,170 @@
           </svg>
           <div class="option-label">Detach Variables</div>
         </div>
-        <div class="toggle on" id="toggle-tokens">
-          <div class="toggle-knob"></div>
+        <div class="switch on" id="toggle-tokens" role="switch" aria-checked="true">
+          <div class="switch-thumb"></div>
         </div>
       </div>
     </div>
 
-    <div class="progress-container" id="progress-container">
+    <div class="progress" id="progress">
       <div class="progress-label" id="progress-label">Processing...</div>
       <div class="progress-bar">
         <div class="progress-fill" id="progress-fill"></div>
       </div>
     </div>
 
-    <button class="btn-strip" id="strip-btn" onclick="strip()">Strip That</button>
+    <button class="btn" id="strip-btn" onclick="strip()" type="button">Strip That</button>
   </div>
 
   <script>
-    // Global state object
     var pluginState = {
-      detachComponents: true,
       unlinkStyles: true,
       unlinkTokens: true,
+      theme: null,
       isProcessing: false,
       preferencesLoaded: false
     };
 
-    // Apply saved state to UI
-    function applyPreferencesToUI() {
-      var toggleDetach = document.getElementById('toggle-detach');
-      var toggleStyles = document.getElementById('toggle-styles');
-      var toggleTokens = document.getElementById('toggle-tokens');
-      
-      if (!pluginState.detachComponents) {
-        toggleDetach.classList.remove('on');
-      } else {
-        toggleDetach.classList.add('on');
+    function resolveTheme(saved) {
+      if (saved === 'light' || saved === 'dark') return saved;
+      try {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      } catch (e) {
+        return 'light';
       }
-      
-      if (!pluginState.unlinkStyles) {
-        toggleStyles.classList.remove('on');
-      } else {
-        toggleStyles.classList.add('on');
-      }
-      
-      if (!pluginState.unlinkTokens) {
-        toggleTokens.classList.remove('on');
-      } else {
-        toggleTokens.classList.add('on');
-      }
-      
-      console.log('Applied preferences to UI:', pluginState);
     }
 
-    function toggleOption(option) {
-      if (pluginState.isProcessing) return;
-      
-      var toggle = document.getElementById('toggle-' + option);
-      
-      if (option === 'detach') {
-        pluginState.detachComponents = !pluginState.detachComponents;
-        if (pluginState.detachComponents) {
-          toggle.classList.add('on');
-        } else {
-          toggle.classList.remove('on');
-        }
-      } else if (option === 'styles') {
-        pluginState.unlinkStyles = !pluginState.unlinkStyles;
-        if (pluginState.unlinkStyles) {
-          toggle.classList.add('on');
-        } else {
-          toggle.classList.remove('on');
-        }
-      } else if (option === 'tokens') {
-        pluginState.unlinkTokens = !pluginState.unlinkTokens;
-        if (pluginState.unlinkTokens) {
-          toggle.classList.add('on');
-        } else {
-          toggle.classList.remove('on');
-        }
-      }
-      
-      // Save to backend
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      pluginState.theme = theme;
+    }
+
+    function applyPreferencesToUI() {
+      var toggleStyles = document.getElementById('toggle-styles');
+      var toggleTokens = document.getElementById('toggle-tokens');
+
+      setSwitch(toggleStyles, pluginState.unlinkStyles);
+      setSwitch(toggleTokens, pluginState.unlinkTokens);
+    }
+
+    function setSwitch(el, on) {
+      if (on) el.classList.add('on');
+      else el.classList.remove('on');
+      el.setAttribute('aria-checked', on ? 'true' : 'false');
+    }
+
+    function savePrefs() {
       parent.postMessage({
         pluginMessage: {
           type: 'save-preferences',
           preferences: {
-            detachComponents: pluginState.detachComponents,
             unlinkStyles: pluginState.unlinkStyles,
-            unlinkTokens: pluginState.unlinkTokens
+            unlinkTokens: pluginState.unlinkTokens,
+            theme: pluginState.theme
           }
         }
       }, '*');
-      
-      console.log('Saving preferences:', pluginState);
+    }
+
+    function toggleOption(option) {
+      if (pluginState.isProcessing) return;
+      var toggle = document.getElementById('toggle-' + option);
+
+      if (option === 'styles') {
+        pluginState.unlinkStyles = !pluginState.unlinkStyles;
+        setSwitch(toggle, pluginState.unlinkStyles);
+      } else if (option === 'tokens') {
+        pluginState.unlinkTokens = !pluginState.unlinkTokens;
+        setSwitch(toggle, pluginState.unlinkTokens);
+      }
+
+      savePrefs();
+    }
+
+    function toggleTheme() {
+      applyTheme(pluginState.theme === 'dark' ? 'light' : 'dark');
+      savePrefs();
     }
 
     function setProcessing(isProcessing) {
       pluginState.isProcessing = isProcessing;
       var btn = document.getElementById('strip-btn');
-      var optionItems = document.querySelectorAll('.option-item');
-      
-      if (isProcessing) {
-        btn.disabled = true;
-        for (var i = 0; i < optionItems.length; i++) {
-          optionItems[i].classList.add('disabled');
-        }
-      } else {
-        btn.disabled = false;
-        for (var i = 0; i < optionItems.length; i++) {
-          optionItems[i].classList.remove('disabled');
-        }
+      var options = document.querySelectorAll('.option');
+
+      btn.disabled = isProcessing;
+      for (var i = 0; i < options.length; i++) {
+        if (isProcessing) options[i].classList.add('disabled');
+        else options[i].classList.remove('disabled');
       }
     }
 
     function updateProgress(message, percent) {
-      var container = document.getElementById('progress-container');
-      var label = document.getElementById('progress-label');
-      var fill = document.getElementById('progress-fill');
-      
+      var container = document.getElementById('progress');
       container.classList.add('show');
-      label.textContent = message;
-      fill.style.width = percent + '%';
+      document.getElementById('progress-label').textContent = message;
+      document.getElementById('progress-fill').style.width = percent + '%';
     }
 
     function hideProgress() {
-      var container = document.getElementById('progress-container');
-      container.classList.remove('show');
+      document.getElementById('progress').classList.remove('show');
     }
 
     function strip() {
       if (pluginState.isProcessing) return;
-      
       setProcessing(true);
       updateProgress('Starting...', 0);
-      
+
       parent.postMessage({
         pluginMessage: {
           type: 'strip',
-          detachComponents: pluginState.detachComponents,
           unlinkStyles: pluginState.unlinkStyles,
           unlinkTokens: pluginState.unlinkTokens
         }
       }, '*');
     }
 
-    function showMessage(text, type) {
-      var messageEl = document.getElementById('message');
-      messageEl.textContent = text;
-      messageEl.className = 'message ' + type + ' show';
-      
-      setTimeout(function() {
-        messageEl.classList.remove('show');
-      }, 3000);
+    function showToast(text, type) {
+      var el = document.getElementById('toast');
+      el.textContent = text;
+      el.className = 'toast ' + type + ' show';
+      setTimeout(function() { el.classList.remove('show'); }, 3000);
     }
 
-    // Listen for messages from the plugin code
     window.onmessage = function(event) {
-      if (event.data.pluginMessage) {
-        var msg = event.data.pluginMessage;
-        
-        if (msg.type === 'preferences-loaded') {
-          // Apply loaded preferences
-          if (msg.preferences) {
-            pluginState.detachComponents = msg.preferences.detachComponents !== undefined ? msg.preferences.detachComponents : true;
-            pluginState.unlinkStyles = msg.preferences.unlinkStyles !== undefined ? msg.preferences.unlinkStyles : true;
-            pluginState.unlinkTokens = msg.preferences.unlinkTokens !== undefined ? msg.preferences.unlinkTokens : true;
-            
-            console.log('Loaded preferences from backend:', msg.preferences);
-          }
-          pluginState.preferencesLoaded = true;
-          applyPreferencesToUI();
-        } else if (msg.type === 'progress') {
-          updateProgress(msg.message, msg.percent);
-        } else if (msg.type === 'success') {
-          hideProgress();
-          setProcessing(false);
-          showMessage(msg.message, 'success');
-        } else if (msg.type === 'error') {
-          hideProgress();
-          setProcessing(false);
-          showMessage(msg.message, 'error');
+      if (!event.data.pluginMessage) return;
+      var msg = event.data.pluginMessage;
+
+      if (msg.type === 'preferences-loaded') {
+        if (msg.preferences) {
+          pluginState.unlinkStyles = msg.preferences.unlinkStyles !== undefined ? msg.preferences.unlinkStyles : true;
+          pluginState.unlinkTokens = msg.preferences.unlinkTokens !== undefined ? msg.preferences.unlinkTokens : true;
+          applyTheme(resolveTheme(msg.preferences.theme));
+        } else {
+          applyTheme(resolveTheme(null));
         }
+        pluginState.preferencesLoaded = true;
+        applyPreferencesToUI();
+      } else if (msg.type === 'progress') {
+        updateProgress(msg.message, msg.percent);
+      } else if (msg.type === 'success') {
+        hideProgress();
+        setProcessing(false);
+        showToast(msg.message, 'success');
+      } else if (msg.type === 'error') {
+        hideProgress();
+        setProcessing(false);
+        showToast(msg.message, 'error');
       }
     };
 
-    // Wait for DOM to be ready, then apply default UI state
+    // Initial theme before backend responds, to avoid flash
+    applyTheme(resolveTheme(null));
+
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function() {
-        applyPreferencesToUI();
-      });
+      document.addEventListener('DOMContentLoaded', applyPreferencesToUI);
     } else {
       applyPreferencesToUI();
     }

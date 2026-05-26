@@ -7,14 +7,12 @@ async function loadPreferences() {
     var prefs = await figma.clientStorage.getAsync('stripThatOut-preferences');
     console.log('Loaded preferences:', prefs);
     return prefs || {
-      detachComponents: true,
       unlinkStyles: true,
       unlinkTokens: true
     };
   } catch (e) {
     console.error('Error loading preferences:', e);
     return {
-      detachComponents: true,
       unlinkStyles: true,
       unlinkTokens: true
     };
@@ -68,57 +66,6 @@ function isNodeValid(node) {
   } catch (e) {
     return false;
   }
-}
-
-// Function to detach all instances recursively
-async function detachInstances(selection) {
-  var detachedCount = 0;
-  var maxIterations = 10;
-  var iteration = 0;
-  
-  while (iteration < maxIterations) {
-    iteration++;
-    var hadInstances = false;
-    
-    // Collect fresh nodes from the selection roots
-    var allNodes = [];
-    for (var i = 0; i < selection.length; i++) {
-      if (isNodeValid(selection[i])) {
-        collectAllNodes(selection[i], allNodes);
-      }
-    }
-    
-    console.log('Iteration ' + iteration + ': Found ' + allNodes.length + ' nodes');
-    
-    // Find and detach instances in this pass
-    for (var i = 0; i < allNodes.length; i++) {
-      var node = allNodes[i];
-      
-      // Check if node is still valid before processing
-      if (!isNodeValid(node)) {
-        continue;
-      }
-      
-      if (node.type === 'INSTANCE') {
-        try {
-          node.detachInstance();
-          detachedCount++;
-          hadInstances = true;
-        } catch (e) {
-          console.error('Error detaching instance:', e);
-        }
-      }
-    }
-    
-    // If no instances were found in this pass, we're done
-    if (!hadInstances) {
-      console.log('No more instances found after iteration ' + iteration);
-      break;
-    }
-  }
-  
-  console.log('Total instances detached: ' + detachedCount + ' (in ' + iteration + ' iterations)');
-  return detachedCount;
 }
 
 // Function to remove all styles from nodes
@@ -791,29 +738,15 @@ async function processSelection(options) {
     });
 
     var totalSteps = 0;
-    if (options.detachComponents) totalSteps++;
     if (options.unlinkStyles) totalSteps++;
     if (options.unlinkTokens) totalSteps++;
-    
+
     var currentStep = 0;
-    var baseProgress = 10;
 
     // Store selection roots
     var selectionRoots = selection.slice();
 
-    // STEP 1: Detach components first
-    if (options.detachComponents) {
-      currentStep++;
-      figma.ui.postMessage({
-        type: 'progress',
-        message: 'Detaching components...',
-        percent: baseProgress + (currentStep / totalSteps) * 30
-      });
-      
-      await detachInstances(selectionRoots);
-    }
-
-    // Collect fresh nodes after detaching
+    // Collect nodes from selection
     figma.ui.postMessage({
       type: 'progress',
       message: 'Collecting nodes...',
@@ -886,7 +819,6 @@ async function processSelection(options) {
 figma.ui.onmessage = function(msg) {
   if (msg.type === 'strip') {
     processSelection({
-      detachComponents: msg.detachComponents,
       unlinkStyles: msg.unlinkStyles,
       unlinkTokens: msg.unlinkTokens
     });
