@@ -146,9 +146,8 @@ async function removeStyles(nodes) {
     }
     
     try {
-      if ('fillStyleId' in node && node.fillStyleId) {
-        console.log('Removing fill style from:', node.name);
-        node.fillStyleId = '';
+      if ('fillStyleId' in node && node.fillStyleId && typeof node.setFillStyleIdAsync === 'function') {
+        await node.setFillStyleIdAsync('');
         removedCount++;
       }
     } catch (e) {
@@ -156,9 +155,8 @@ async function removeStyles(nodes) {
     }
 
     try {
-      if ('strokeStyleId' in node && node.strokeStyleId) {
-        console.log('Removing stroke style from:', node.name);
-        node.strokeStyleId = '';
+      if ('strokeStyleId' in node && node.strokeStyleId && typeof node.setStrokeStyleIdAsync === 'function') {
+        await node.setStrokeStyleIdAsync('');
         removedCount++;
       }
     } catch (e) {
@@ -166,9 +164,8 @@ async function removeStyles(nodes) {
     }
 
     try {
-      if ('effectStyleId' in node && node.effectStyleId) {
-        console.log('Removing effect style from:', node.name);
-        node.effectStyleId = '';
+      if ('effectStyleId' in node && node.effectStyleId && typeof node.setEffectStyleIdAsync === 'function') {
+        await node.setEffectStyleIdAsync('');
         removedCount++;
       }
     } catch (e) {
@@ -210,19 +207,20 @@ async function removeStyles(nodes) {
     }
 
     try {
-      if ('gridStyleId' in node && node.gridStyleId) {
-        console.log('Removing grid style from:', node.name);
-        node.gridStyleId = '';
+      if ('gridStyleId' in node && node.gridStyleId && typeof node.setGridStyleIdAsync === 'function') {
+        await node.setGridStyleIdAsync('');
         removedCount++;
       }
     } catch (e) {
       console.error('Error removing grid style:', e);
     }
 
+    // backgroundStyleId is a PageNode property. Per docs, setFillStyleIdAsync
+    // replaces both fillStyleId and backgroundStyleId. PageNodes rarely appear
+    // in user selection but guard defensively.
     try {
-      if ('backgroundStyleId' in node && node.backgroundStyleId) {
-        console.log('Removing background style from:', node.name);
-        node.backgroundStyleId = '';
+      if ('backgroundStyleId' in node && node.backgroundStyleId && typeof node.setFillStyleIdAsync === 'function') {
+        await node.setFillStyleIdAsync('');
         removedCount++;
       }
     } catch (e) {
