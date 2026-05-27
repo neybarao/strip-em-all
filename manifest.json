@@ -3,6 +3,7 @@
   "id": "strip-that-out",
   "api": "1.0.0",
   "main": "code.js",
+  "icon": "icon.png",
   "capabilities": [],
   "ui": "ui.html",
   "editorType": ["figma"],
