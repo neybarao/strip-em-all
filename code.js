@@ -1,5 +1,5 @@
 // Show the UI
-figma.showUI(__html__, { width: 450, height: 470 });
+figma.showUI(__html__, { width: 450, height: 560 });
 
 // Handle preferences storage using Figma's clientStorage
 async function loadPreferences() {
@@ -34,7 +34,73 @@ loadPreferences().then(function(prefs) {
     type: 'preferences-loaded',
     preferences: prefs
   });
+  sendStats();
 });
+
+function hasStyleApplied(node) {
+  try {
+    if (node.fillStyleId) return true;
+    if (node.strokeStyleId) return true;
+    if (node.effectStyleId) return true;
+    if (node.gridStyleId) return true;
+    if (node.backgroundStyleId) return true;
+    if (node.type === 'TEXT' && node.textStyleId) return true;
+  } catch (e) {}
+  return false;
+}
+
+function paintListHasVars(list) {
+  if (!Array.isArray(list)) return false;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i] && list[i].boundVariables && Object.keys(list[i].boundVariables).length > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasVariableApplied(node) {
+  try {
+    if (node.boundVariables && Object.keys(node.boundVariables).length > 0) return true;
+    if ('fills' in node && node.fills !== figma.mixed && paintListHasVars(node.fills)) return true;
+    if ('strokes' in node && node.strokes !== figma.mixed && paintListHasVars(node.strokes)) return true;
+    if ('effects' in node && node.effects !== figma.mixed && paintListHasVars(node.effects)) return true;
+  } catch (e) {}
+  return false;
+}
+
+function sendStats() {
+  var selection = figma.currentPage.selection;
+  if (selection.length === 0) {
+    figma.ui.postMessage({ type: 'stats', stats: null });
+    return;
+  }
+  var all = [];
+  for (var i = 0; i < selection.length; i++) {
+    if (isNodeValid(selection[i])) collectAllNodes(selection[i], all);
+  }
+  var styles = 0;
+  var variables = 0;
+  for (var i = 0; i < all.length; i++) {
+    if (hasStyleApplied(all[i])) styles++;
+    if (hasVariableApplied(all[i])) variables++;
+  }
+  figma.ui.postMessage({
+    type: 'stats',
+    stats: { layers: all.length, styles: styles, variables: variables }
+  });
+}
+
+var statsTimer = null;
+function debouncedSendStats() {
+  if (statsTimer) clearTimeout(statsTimer);
+  statsTimer = setTimeout(function() {
+    statsTimer = null;
+    sendStats();
+  }, 120);
+}
+
+figma.on('selectionchange', debouncedSendStats);
 
 // Function to collect all nodes recursively before processing
 function collectAllNodes(node, nodes) {
@@ -767,7 +833,7 @@ async function processSelection(options) {
       currentStep++;
       figma.ui.postMessage({
         type: 'progress',
-        message: 'Removing styles...',
+        message: 'Detaching styles...',
         percent: 50 + ((currentStep - 1) / totalSteps) * 25
       });
       await removeStyles(allNodes);
@@ -786,7 +852,7 @@ async function processSelection(options) {
       currentStep++;
       figma.ui.postMessage({
         type: 'progress',
-        message: 'Unlinking tokens...',
+        message: 'Detaching variables...',
         percent: 75 + ((currentStep - 1) / totalSteps) * 20
       });
       await unlinkTokens(allNodes);
@@ -799,17 +865,19 @@ async function processSelection(options) {
     });
 
     setTimeout(function() {
+      var nodeCount = allNodes.length;
       figma.ui.postMessage({
         type: 'success',
-        message: 'Successfully processed ' + selection.length + ' object(s) with ' + allNodes.length + ' total nodes'
+        message: 'Stripped ' + nodeCount + ' ' + (nodeCount === 1 ? 'layer' : 'layers') + ' clean.'
       });
+      sendStats();
     }, 500);
 
   } catch (e) {
     console.error('Processing error:', e);
     figma.ui.postMessage({
       type: 'error',
-      message: 'Error: ' + e.message
+      message: e.message || 'Something went wrong while stripping.'
     });
   }
 }

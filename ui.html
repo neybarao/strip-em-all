@@ -2,34 +2,41 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --background: oklch(0.99 0.002 80);
       --foreground: oklch(0.18 0.005 80);
+      --surface: oklch(0.97 0.003 80);
       --muted: oklch(0.96 0.003 80);
       --muted-foreground: oklch(0.52 0.005 80);
       --border: oklch(0.9 0.004 80);
+      --card-border: oklch(0.85 0.05 100);
       --input: oklch(0.88 0.004 80);
-      --ring: oklch(0.78 0.17 80);
-      --primary: oklch(0.78 0.17 80);
+      --ring: #ffe927;
+      --primary: #ffe927;
       --primary-foreground: oklch(0.18 0.005 80);
-      --primary-hover: oklch(0.82 0.17 80);
+      --primary-hover: #fff05a;
       --success: oklch(0.7 0.15 155);
       --destructive: oklch(0.62 0.21 25);
-      --radius: 0.625rem;
+      --radius: 16px;
     }
 
     [data-theme="dark"] {
-      --background: oklch(0.16 0.005 80);
+      --background: #0a0a0a;
       --foreground: oklch(0.98 0.002 80);
+      --surface: oklch(0.18 0.005 80);
       --muted: oklch(0.22 0.005 80);
       --muted-foreground: oklch(0.65 0.005 80);
       --border: oklch(0.28 0.006 80);
+      --card-border: oklch(0.45 0.08 100 / 0.35);
       --input: oklch(0.32 0.006 80);
-      --ring: oklch(0.78 0.17 80);
-      --primary: oklch(0.78 0.17 80);
+      --ring: #ffe927;
+      --primary: #ffe927;
       --primary-foreground: oklch(0.18 0.005 80);
-      --primary-hover: oklch(0.82 0.17 80);
+      --primary-hover: #fff05a;
       --success: oklch(0.65 0.15 155);
       --destructive: oklch(0.65 0.21 25);
     }
@@ -45,8 +52,7 @@
     }
 
     body {
-      font-family: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+      font-family: 'Lato', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--background);
       color: var(--foreground);
       font-size: 13px;
@@ -59,42 +65,35 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
-      padding: 20px;
-      gap: 20px;
+      padding: 22px 20px 20px;
     }
 
-    /* Header */
     .header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: 12px;
+      margin-bottom: 28px;
     }
 
     .title {
-      font-size: 18px;
-      font-weight: 600;
-      letter-spacing: -0.01em;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
       color: var(--foreground);
-      line-height: 1.2;
+      line-height: 1.1;
     }
 
-    .subtitle {
-      font-size: 12px;
-      color: var(--muted-foreground);
-      margin-top: 4px;
-    }
 
-    /* Theme toggle */
     .theme-toggle {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       background: transparent;
       border: 1px solid var(--border);
-      border-radius: calc(var(--radius) - 2px);
+      border-radius: 10px;
       color: var(--muted-foreground);
       cursor: pointer;
       transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
@@ -112,8 +111,8 @@
     }
 
     .theme-toggle svg {
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
     }
 
     .theme-toggle .icon-sun { display: none; }
@@ -121,63 +120,94 @@
     [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
     [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 
-    /* Options */
+    /* Option cards */
     .options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .option-card {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      flex: 1;
-    }
-
-    .option {
-      display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      padding: 10px 12px;
-      border-radius: calc(var(--radius) - 2px);
+      gap: 16px;
+      padding: 28px 16px;
+      background: transparent;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
       cursor: pointer;
-      transition: background-color 0.12s ease;
+      transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
       user-select: none;
+      height: 200px;
     }
 
-    .option:hover {
-      background: var(--muted);
+    .option-card:hover {
+      background: color-mix(in oklch, var(--primary) 6%, transparent);
+      border-color: color-mix(in oklch, var(--primary) 45%, transparent);
     }
 
-    .option.disabled {
+    .option-card.disabled {
       opacity: 0.5;
       pointer-events: none;
     }
 
-    .option-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 0;
+    .option-card .option-icon {
+      transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .option-card.draining .option-icon {
+      opacity: 0.35;
+      transform: scale(0.92) translateY(2px);
     }
 
     .option-icon {
-      width: 16px;
-      height: 16px;
-      color: var(--muted-foreground);
-      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      color: var(--foreground);
+      stroke-width: 1.75;
+      transform-origin: center;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .option-card[data-option="styles"]:hover .option-icon {
+        animation: drip 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .option-card[data-option="tokens"]:hover .option-icon {
+        animation: open-braces 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+    }
+
+    @keyframes drip {
+      0%   { transform: translateY(0); }
+      55%  { transform: translateY(4px); }
+      100% { transform: translateY(0); }
+    }
+
+    @keyframes open-braces {
+      0%   { transform: scaleX(1); }
+      55%  { transform: scaleX(1.18); }
+      100% { transform: scaleX(1); }
     }
 
     .option-label {
-      font-size: 13px;
-      font-weight: 500;
+      font-size: 14px;
+      font-weight: 400;
       color: var(--foreground);
+      text-align: center;
     }
 
-    /* Switch (shadcn style) */
+    /* Switch — outlined when off, solid when on */
     .switch {
       position: relative;
-      width: 32px;
-      height: 18px;
-      background: var(--input);
+      width: 40px;
+      height: 22px;
+      background: transparent;
+      border: 1.5px solid var(--primary);
       border-radius: 999px;
-      transition: background-color 0.15s ease;
+      transition: background-color 0.18s ease;
       flex-shrink: 0;
     }
 
@@ -189,17 +219,86 @@
       position: absolute;
       top: 2px;
       left: 2px;
-      width: 14px;
-      height: 14px;
-      background: var(--background);
+      width: 15px;
+      height: 15px;
       border-radius: 999px;
-      box-shadow: 0 1px 2px oklch(0 0 0 / 0.1);
-      transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1.5px solid var(--primary);
+      background: transparent;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.18s ease, border-color 0.18s ease;
     }
 
     .switch.on .switch-thumb {
-      transform: translateX(14px);
+      transform: translateX(18px);
       background: var(--primary-foreground);
+      border-color: var(--primary-foreground);
+    }
+
+    /* Stats card */
+    .stats {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 20px 22px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      height: 140px;
+    }
+
+    .stats-empty {
+      text-align: center;
+      color: var(--muted-foreground);
+      font-size: 14px;
+    }
+
+    .stats-filled {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .stat strong {
+      transition: color 0.2s ease;
+    }
+
+    .stats.draining .stat strong {
+      color: var(--primary);
+    }
+
+    .stat-primary {
+      margin-bottom: 6px;
+    }
+
+    [hidden] { display: none !important; }
+
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--muted-foreground);
+    }
+
+    .stat svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      stroke-width: 1.75;
+    }
+
+    .stat-primary {
+      color: var(--foreground);
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .stat-primary svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .stat strong {
+      color: var(--foreground);
+      font-weight: 700;
     }
 
     /* Progress */
@@ -214,9 +313,9 @@
     }
 
     .progress-label {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--muted-foreground);
-      font-weight: 500;
+      font-weight: 700;
     }
 
     .progress-bar {
@@ -235,16 +334,22 @@
       transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
+    .spacer {
+      flex: 1;
+      min-height: 20px;
+    }
+
     /* Button */
     .btn {
       width: 100%;
-      height: 36px;
+      height: 52px;
       background: var(--primary);
       color: var(--primary-foreground);
       border: none;
-      border-radius: calc(var(--radius) - 2px);
-      font-size: 13px;
-      font-weight: 600;
+      border-radius: 999px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
       font-family: inherit;
       cursor: pointer;
       transition: background-color 0.12s ease, opacity 0.12s ease;
@@ -264,6 +369,36 @@
       cursor: not-allowed;
     }
 
+    /* Confetti */
+    .confetti-burst {
+      position: fixed;
+      bottom: 46px;
+      left: 50%;
+      width: 0;
+      height: 0;
+      pointer-events: none;
+      z-index: 60;
+    }
+
+    .confetti-particle {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 7px;
+      height: 7px;
+      background: var(--primary);
+      border-radius: 2px;
+      opacity: 0;
+      animation: confetti-fly 0.95s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: var(--d, 0ms);
+    }
+
+    @keyframes confetti-fly {
+      0%   { transform: translate(-50%, -50%) rotate(0); opacity: 0; }
+      12%  { opacity: 1; }
+      100% { transform: translate(calc(var(--tx) - 50%), calc(var(--ty) - 50%)) rotate(var(--r)); opacity: 0; }
+    }
+
     /* Toast */
     .toast {
       position: fixed;
@@ -271,9 +406,9 @@
       left: 50%;
       transform: translateX(-50%) translateY(-8px);
       padding: 8px 14px;
-      border-radius: calc(var(--radius) - 2px);
+      border-radius: 10px;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 700;
       background: var(--foreground);
       color: var(--background);
       border: 1px solid var(--border);
@@ -308,10 +443,7 @@
 
   <div class="app">
     <div class="header">
-      <div>
-        <div class="title">Strip That Out</div>
-        <div class="subtitle">Select an object or frame</div>
-      </div>
+      <div class="title">Strip 'em All!</div>
       <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" type="button">
         <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="4"></circle>
@@ -331,28 +463,51 @@
     </div>
 
     <div class="options" id="options">
-      <div class="option" onclick="toggleOption('styles')">
-        <div class="option-left">
-          <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
-          </svg>
-          <div class="option-label">Detach Styles</div>
-        </div>
+      <div class="option-card" data-option="styles" onclick="toggleOption('styles')">
+        <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+        </svg>
+        <div class="option-label">Detach Styles</div>
         <div class="switch on" id="toggle-styles" role="switch" aria-checked="true">
           <div class="switch-thumb"></div>
         </div>
       </div>
 
-      <div class="option" onclick="toggleOption('tokens')">
-        <div class="option-left">
-          <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="16 18 22 12 16 6"></polyline>
-            <polyline points="8 6 2 12 8 18"></polyline>
-          </svg>
-          <div class="option-label">Detach Variables</div>
-        </div>
+      <div class="option-card" data-option="tokens" onclick="toggleOption('tokens')">
+        <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1"></path>
+          <path d="M16 21h1a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"></path>
+        </svg>
+        <div class="option-label">Detach Variables</div>
         <div class="switch on" id="toggle-tokens" role="switch" aria-checked="true">
           <div class="switch-thumb"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats" id="stats-card">
+      <div class="stats-empty" id="stats-empty">Select an object or frame to scan</div>
+      <div class="stats-filled" id="stats-filled" hidden>
+        <div class="stat stat-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path>
+            <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"></path>
+            <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"></path>
+          </svg>
+          <span><strong id="stat-layers">0</strong> layers</span>
+        </div>
+        <div class="stat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+          </svg>
+          <span><strong id="stat-styles">0</strong> with styles</span>
+        </div>
+        <div class="stat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1"></path>
+            <path d="M16 21h1a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"></path>
+          </svg>
+          <span><strong id="stat-variables">0</strong> with variables</span>
         </div>
       </div>
     </div>
@@ -364,7 +519,9 @@
       </div>
     </div>
 
-    <button class="btn" id="strip-btn" onclick="strip()" type="button">Strip That</button>
+    <div class="spacer"></div>
+
+    <button class="btn" id="strip-btn" onclick="strip()" type="button">Strip 'em All!</button>
   </div>
 
   <script>
@@ -375,6 +532,35 @@
       isProcessing: false,
       preferencesLoaded: false
     };
+
+    var stripWatchdog = null;
+    var STRIP_TIMEOUT_MS = 60000;
+
+    function armStripWatchdog() {
+      clearStripWatchdog();
+      stripWatchdog = setTimeout(function() {
+        stripWatchdog = null;
+        if (!pluginState.isProcessing) return;
+        hideProgress();
+        setProcessing(false);
+        resetStripVisuals();
+        showToast('Stripping took too long. Try a smaller selection.', 'error');
+      }, STRIP_TIMEOUT_MS);
+    }
+
+    function clearStripWatchdog() {
+      if (stripWatchdog) { clearTimeout(stripWatchdog); stripWatchdog = null; }
+    }
+
+    function resetStripVisuals() {
+      var card = document.getElementById('stats-card');
+      if (card) card.classList.remove('draining');
+      var cards = document.querySelectorAll('.option-card');
+      for (var i = 0; i < cards.length; i++) cards[i].classList.remove('draining');
+      // restore counters to actual values
+      document.getElementById('stat-styles').textContent = counterState.baseStyles || 0;
+      document.getElementById('stat-variables').textContent = counterState.baseVariables || 0;
+    }
 
     function resolveTheme(saved) {
       if (saved === 'light' || saved === 'dark') return saved;
@@ -391,11 +577,9 @@
     }
 
     function applyPreferencesToUI() {
-      var toggleStyles = document.getElementById('toggle-styles');
-      var toggleTokens = document.getElementById('toggle-tokens');
-
-      setSwitch(toggleStyles, pluginState.unlinkStyles);
-      setSwitch(toggleTokens, pluginState.unlinkTokens);
+      setSwitch(document.getElementById('toggle-styles'), pluginState.unlinkStyles);
+      setSwitch(document.getElementById('toggle-tokens'), pluginState.unlinkTokens);
+      updateCtaState();
     }
 
     function setSwitch(el, on) {
@@ -430,6 +614,28 @@
       }
 
       savePrefs();
+      updateCtaState();
+    }
+
+    function updateCtaState() {
+      var btn = document.getElementById('strip-btn');
+      if (pluginState.isProcessing) {
+        btn.disabled = true;
+        btn.textContent = 'Stripping...';
+        return;
+      }
+      var hasSelection = (counterState.baseLayers || 0) > 0;
+      var anyOn = pluginState.unlinkStyles || pluginState.unlinkTokens;
+      if (!hasSelection) {
+        btn.disabled = true;
+        btn.textContent = 'Select something';
+      } else if (!anyOn) {
+        btn.disabled = true;
+        btn.textContent = 'Nothing to strip';
+      } else {
+        btn.disabled = false;
+        btn.textContent = "Strip 'em All!";
+      }
     }
 
     function toggleTheme() {
@@ -439,14 +645,14 @@
 
     function setProcessing(isProcessing) {
       pluginState.isProcessing = isProcessing;
-      var btn = document.getElementById('strip-btn');
-      var options = document.querySelectorAll('.option');
+      var cards = document.querySelectorAll('.option-card');
 
-      btn.disabled = isProcessing;
-      for (var i = 0; i < options.length; i++) {
-        if (isProcessing) options[i].classList.add('disabled');
-        else options[i].classList.remove('disabled');
+      for (var i = 0; i < cards.length; i++) {
+        if (isProcessing) cards[i].classList.add('disabled');
+        else cards[i].classList.remove('disabled');
       }
+
+      updateCtaState();
     }
 
     function updateProgress(message, percent) {
@@ -454,6 +660,10 @@
       container.classList.add('show');
       document.getElementById('progress-label').textContent = message;
       document.getElementById('progress-fill').style.width = percent + '%';
+
+      // Counter ticker tracks overall progress (0–100 → 0–1)
+      var p = Math.max(0, Math.min(1, percent / 100));
+      setCounterDrain(p);
     }
 
     function hideProgress() {
@@ -462,7 +672,17 @@
 
     function strip() {
       if (pluginState.isProcessing) return;
+      if (!pluginState.unlinkStyles && !pluginState.unlinkTokens) return;
+      if ((counterState.baseLayers || 0) === 0) return;
+
       setProcessing(true);
+      armStripWatchdog();
+
+      var card = document.getElementById('stats-card');
+      card.classList.add('draining');
+      var cards = document.querySelectorAll('.option-card');
+      for (var i = 0; i < cards.length; i++) cards[i].classList.add('draining');
+
       updateProgress('Starting...', 0);
 
       parent.postMessage({
@@ -472,6 +692,75 @@
           unlinkTokens: pluginState.unlinkTokens
         }
       }, '*');
+    }
+
+    function updateStats(stats) {
+      var empty = document.getElementById('stats-empty');
+      var filled = document.getElementById('stats-filled');
+      var card = document.getElementById('stats-card');
+
+      if (!stats || stats.layers === 0) {
+        empty.hidden = false;
+        filled.hidden = true;
+        card.classList.remove('draining');
+        counterState.baseLayers = 0;
+        counterState.baseStyles = 0;
+        counterState.baseVariables = 0;
+        updateCtaState();
+        return;
+      }
+
+      document.getElementById('stat-layers').textContent = stats.layers;
+      document.getElementById('stat-styles').textContent = stats.styles;
+      document.getElementById('stat-variables').textContent = stats.variables;
+      empty.hidden = true;
+      filled.hidden = false;
+      card.classList.remove('draining');
+
+      counterState.baseLayers = stats.layers;
+      counterState.baseStyles = stats.styles;
+      counterState.baseVariables = stats.variables;
+
+      updateCtaState();
+    }
+
+    // ──────────── Counter drain ticker ────────────
+    var counterState = {
+      baseStyles: 0,
+      baseVariables: 0,
+      baseLayers: 0
+    };
+
+    function setCounterDrain(progress) {
+      var p = Math.max(0, Math.min(1, progress || 0));
+      var inv = 1 - p;
+      var styles = Math.round((counterState.baseStyles || 0) * inv);
+      var variables = Math.round((counterState.baseVariables || 0) * inv);
+      document.getElementById('stat-styles').textContent = styles;
+      document.getElementById('stat-variables').textContent = variables;
+    }
+
+    function celebrate() {
+      try {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      } catch (e) {}
+
+      var count = 16;
+      var burst = document.createElement('div');
+      burst.className = 'confetti-burst';
+      for (var i = 0; i < count; i++) {
+        var p = document.createElement('span');
+        p.className = 'confetti-particle';
+        var angle = (180 + (i / count) * 180 + (Math.random() - 0.5) * 18) * Math.PI / 180;
+        var dist = 70 + Math.random() * 60;
+        p.style.setProperty('--tx', (Math.cos(angle) * dist).toFixed(1) + 'px');
+        p.style.setProperty('--ty', (Math.sin(angle) * dist).toFixed(1) + 'px');
+        p.style.setProperty('--r', Math.floor(Math.random() * 540 - 270) + 'deg');
+        p.style.setProperty('--d', Math.floor(Math.random() * 80) + 'ms');
+        burst.appendChild(p);
+      }
+      document.body.appendChild(burst);
+      setTimeout(function() { burst.remove(); }, 1200);
     }
 
     function showToast(text, type) {
@@ -495,29 +784,50 @@
         }
         pluginState.preferencesLoaded = true;
         applyPreferencesToUI();
+      } else if (msg.type === 'stats') {
+        updateStats(msg.stats);
       } else if (msg.type === 'progress') {
+        armStripWatchdog();
         updateProgress(msg.message, msg.percent);
       } else if (msg.type === 'success') {
+        clearStripWatchdog();
         hideProgress();
         setProcessing(false);
+        setCounterDrain(1);
+        var cards = document.querySelectorAll('.option-card');
+        for (var i = 0; i < cards.length; i++) cards[i].classList.remove('draining');
+        celebrate();
         showToast(msg.message, 'success');
       } else if (msg.type === 'error') {
+        clearStripWatchdog();
         hideProgress();
         setProcessing(false);
+        resetStripVisuals();
         showToast(msg.message, 'error');
       }
     };
 
-    // Initial theme before backend responds, to avoid flash
     applyTheme(resolveTheme(null));
 
     document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', applyPreferencesToUI);
-    } else {
+    function bootstrap() {
       applyPreferencesToUI();
     }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootstrap);
+    } else {
+      bootstrap();
+    }
+
+    try {
+      console.log(
+        '%c Strip \'em All! ',
+        'background:#ffe927;color:#18181b;font-weight:700;padding:4px 10px;border-radius:6px;font-family:Lato,sans-serif'
+      );
+      console.log('%c Stripped clean by @neybarao', 'color:#888;font-style:italic');
+    } catch (e) {}
   </script>
 </body>
 </html>
