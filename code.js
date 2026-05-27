@@ -264,6 +264,31 @@ async function removeStyles(nodes, opts) {
 
 
 
+// Recursively detect if obj (or any nested array/object) contains a
+// non-empty boundVariables map. Required for gradient paints where the
+// variable binding lives on gradientStops[k].boundVariables, not on the
+// paint object itself.
+function hasNestedBoundVars(obj) {
+  if (obj === null || typeof obj !== 'object') return false;
+  if (Array.isArray(obj)) {
+    for (var i = 0; i < obj.length; i++) {
+      if (hasNestedBoundVars(obj[i])) return true;
+    }
+    return false;
+  }
+  if (obj.boundVariables && typeof obj.boundVariables === 'object') {
+    for (var k in obj.boundVariables) {
+      if (obj.boundVariables.hasOwnProperty(k)) return true;
+    }
+  }
+  for (var key in obj) {
+    if (obj.hasOwnProperty(key) && key !== 'boundVariables') {
+      if (hasNestedBoundVars(obj[key])) return true;
+    }
+  }
+  return false;
+}
+
 // Function to deep clone and remove boundVariables
 function cloneWithoutBoundVars(obj) {
   if (obj === null || typeof obj !== 'object') {
@@ -727,19 +752,12 @@ async function unlinkTokens(nodes) {
       // Unlink all other bound variables
       unlinkedCount += await unlinkAllBoundVariables(node);
       
-      // Handle fills with bound variables
+      // Handle fills with bound variables (including gradient stops)
       if ('fills' in node && node.fills !== figma.mixed && Array.isArray(node.fills)) {
         try {
           var fills = node.fills;
-          var hasBinding = false;
-          
-          for (var j = 0; j < fills.length; j++) {
-            if (fills[j].boundVariables) {
-              hasBinding = true;
-              break;
-            }
-          }
-          
+          var hasBinding = hasNestedBoundVars(fills);
+
           if (hasBinding) {
             if (node.type === 'TEXT') {
               await figma.loadFontAsync(node.fontName);
@@ -754,19 +772,12 @@ async function unlinkTokens(nodes) {
         }
       }
 
-      // Handle strokes with bound variables
+      // Handle strokes with bound variables (including gradient stops)
       if ('strokes' in node && node.strokes !== figma.mixed && Array.isArray(node.strokes)) {
         try {
           var strokes = node.strokes;
-          var hasBinding = false;
-          
-          for (var j = 0; j < strokes.length; j++) {
-            if (strokes[j].boundVariables) {
-              hasBinding = true;
-              break;
-            }
-          }
-          
+          var hasBinding = hasNestedBoundVars(strokes);
+
           if (hasBinding) {
             var newStrokes = cloneWithoutBoundVars(strokes);
             node.strokes = newStrokes;
@@ -778,19 +789,12 @@ async function unlinkTokens(nodes) {
         }
       }
 
-      // Handle effects with bound variables
+      // Handle effects with bound variables (color/offset/radius/spread vars)
       if ('effects' in node && node.effects !== figma.mixed && Array.isArray(node.effects)) {
         try {
           var effects = node.effects;
-          var hasBinding = false;
-          
-          for (var j = 0; j < effects.length; j++) {
-            if (effects[j].boundVariables) {
-              hasBinding = true;
-              break;
-            }
-          }
-          
+          var hasBinding = hasNestedBoundVars(effects);
+
           if (hasBinding) {
             var newEffects = cloneWithoutBoundVars(effects);
             node.effects = newEffects;
