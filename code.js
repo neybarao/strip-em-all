@@ -352,10 +352,10 @@ async function unlinkTextBoundVariables(node) {
       return unlinkedCount;
     }
     
-    // Handle fontSize / lineHeight / letterSpacing / paragraphSpacing.
+    // Handle fontSize / lineHeight / letterSpacing / paragraphSpacing / paragraphIndent.
     // ensureTextFontsLoaded covers figma.mixed by walking the character
     // ranges; otherwise these writes fail and the binding stays attached.
-    var simpleProps = ['fontSize', 'lineHeight', 'letterSpacing', 'paragraphSpacing'];
+    var simpleProps = ['fontSize', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent'];
     for (var sp = 0; sp < simpleProps.length; sp++) {
       var prop = simpleProps[sp];
       if (!textBoundVars[prop]) continue;
@@ -551,164 +551,66 @@ function resolveStringVariable(variableId) {
   return null;
 }
 
-// Function to unbind font properties with string variables
-async function unlinkFontStringVariables(node) {
-  var unlinkedCount = 0;
-  
-  if (node.type !== 'TEXT') {
-    return unlinkedCount;
+// Unbind a single font-binding field (fontFamily / fontStyle / fontWeight).
+// Handles figma.mixed by walking character ranges and unbinding per range.
+async function unlinkFontFieldBinding(node, field) {
+  var unlinked = 0;
+  if (!node.boundVariables || !node.boundVariables[field]) {
+    // Field may also be bound per-range while node-level is empty: walk
+    // segments below if mixed. For non-mixed, node.boundVariables is the
+    // single source of truth.
   }
-  
   try {
-    var textBoundVars = node.boundVariables;
-    
-    if (!textBoundVars) {
-      return unlinkedCount;
+    var currentFontName = node.fontName;
+    if (currentFontName !== figma.mixed) {
+      if (!node.boundVariables || !node.boundVariables[field]) return 0;
+      await figma.loadFontAsync(currentFontName);
+      node.setBoundVariable(field, null);
+      node.fontName = currentFontName;
+      return 1;
     }
-    
-    // Handle fontFamily string variable
-    if (textBoundVars.fontFamily) {
-      try {
-        console.log('Found fontFamily string variable on:', node.name);
-        
-        // Get current font name
-        var currentFontName = node.fontName;
-        
-        if (currentFontName !== figma.mixed) {
-          // Load the current font
-          await figma.loadFontAsync(currentFontName);
-          
-          // Unbind the variable
-          node.setBoundVariable('fontFamily', null);
-          
-          // Reapply the font
-          node.fontName = currentFontName;
-          
-          unlinkedCount++;
-          console.log('Unbound fontFamily string variable from:', node.name, 'font:', currentFontName.family);
-        } else {
-          // Handle mixed fonts
-          var length = node.characters.length;
-          var processedRanges = [];
-          
-          for (var i = 0; i < length; i++) {
-            // Check if this range was already processed
-            var alreadyProcessed = false;
-            for (var k = 0; k < processedRanges.length; k++) {
-              if (i >= processedRanges[k].start && i < processedRanges[k].end) {
-                alreadyProcessed = true;
-                break;
-              }
-            }
-            if (alreadyProcessed) continue;
-            
-            var rangeFontName = node.getRangeFontName(i, i + 1);
-            await figma.loadFontAsync(rangeFontName);
-            
-            // Find the extent of this font
-            var rangeEnd = i + 1;
-            for (var j = i + 1; j < length; j++) {
-              var nextFont = node.getRangeFontName(j, j + 1);
-              if (nextFont.family === rangeFontName.family && nextFont.style === rangeFontName.style) {
-                rangeEnd = j + 1;
-              } else {
-                break;
-              }
-            }
-            
-            // Unbind for this range
-            var rangeBoundVars = node.getRangeBoundVariables(i, rangeEnd);
-            if (rangeBoundVars && rangeBoundVars.fontFamily) {
-              node.setRangeBoundVariables(i, rangeEnd, { fontFamily: null });
-              node.setRangeFontName(i, rangeEnd, rangeFontName);
-              unlinkedCount++;
-            }
-            
-            processedRanges.push({ start: i, end: rangeEnd });
-            i = rangeEnd - 1;
-          }
-          
-          console.log('Unbound fontFamily string variable from mixed text:', node.name);
-        }
-      } catch (e) {
-        console.error('Error unbinding fontFamily string variable:', e.message);
+    // Mixed: iterate font-uniform ranges and unbind where the range carries
+    // the binding. Skip cleanly past ranges without it.
+    var length = node.characters.length;
+    var i = 0;
+    while (i < length) {
+      var rangeFontName = node.getRangeFontName(i, i + 1);
+      try { await figma.loadFontAsync(rangeFontName); } catch (e) {}
+      var rangeEnd = i + 1;
+      while (rangeEnd < length) {
+        var next = node.getRangeFontName(rangeEnd, rangeEnd + 1);
+        if (next.family === rangeFontName.family && next.style === rangeFontName.style) {
+          rangeEnd++;
+        } else break;
       }
-    }
-    
-    // Handle fontStyle string variable (this is what fontWeight actually controls)
-    if (textBoundVars.fontStyle) {
-      try {
-        console.log('Found fontStyle string variable on:', node.name);
-        
-        // Get current font name
-        var currentFontName = node.fontName;
-        
-        if (currentFontName !== figma.mixed) {
-          // Load the current font
-          await figma.loadFontAsync(currentFontName);
-          
-          // Unbind the variable
-          node.setBoundVariable('fontStyle', null);
-          
-          // Reapply the font
-          node.fontName = currentFontName;
-          
-          unlinkedCount++;
-          console.log('Unbound fontStyle string variable from:', node.name, 'style:', currentFontName.style);
-        } else {
-          // Handle mixed fonts
-          var length = node.characters.length;
-          var processedRanges = [];
-          
-          for (var i = 0; i < length; i++) {
-            // Check if this range was already processed
-            var alreadyProcessed = false;
-            for (var k = 0; k < processedRanges.length; k++) {
-              if (i >= processedRanges[k].start && i < processedRanges[k].end) {
-                alreadyProcessed = true;
-                break;
-              }
-            }
-            if (alreadyProcessed) continue;
-            
-            var rangeFontName = node.getRangeFontName(i, i + 1);
-            await figma.loadFontAsync(rangeFontName);
-            
-            // Find the extent of this font
-            var rangeEnd = i + 1;
-            for (var j = i + 1; j < length; j++) {
-              var nextFont = node.getRangeFontName(j, j + 1);
-              if (nextFont.family === rangeFontName.family && nextFont.style === rangeFontName.style) {
-                rangeEnd = j + 1;
-              } else {
-                break;
-              }
-            }
-            
-            // Unbind for this range
-            var rangeBoundVars = node.getRangeBoundVariables(i, rangeEnd);
-            if (rangeBoundVars && rangeBoundVars.fontStyle) {
-              node.setRangeBoundVariables(i, rangeEnd, { fontStyle: null });
-              node.setRangeFontName(i, rangeEnd, rangeFontName);
-              unlinkedCount++;
-            }
-            
-            processedRanges.push({ start: i, end: rangeEnd });
-            i = rangeEnd - 1;
-          }
-          
-          console.log('Unbound fontStyle string variable from mixed text:', node.name);
-        }
-      } catch (e) {
-        console.error('Error unbinding fontStyle string variable:', e.message);
+      var rbv = node.getRangeBoundVariables(i, rangeEnd);
+      if (rbv && rbv[field]) {
+        var nullKey = {};
+        nullKey[field] = null;
+        node.setRangeBoundVariables(i, rangeEnd, nullKey);
+        node.setRangeFontName(i, rangeEnd, rangeFontName);
+        unlinked++;
       }
+      i = rangeEnd;
     }
-    
   } catch (e) {
-    console.error('Error unlinking font string variables:', e);
+    console.error('Error unbinding ' + field + ':', e.message);
   }
-  
-  return unlinkedCount;
+  return unlinked;
+}
+
+// Unbind every font-name-component string variable on a text node.
+// Figma exposes three separate binding keys for typography variables:
+// fontFamily, fontStyle, and fontWeight. The original implementation
+// only handled fontFamily + fontStyle, so weight-keyed bindings
+// survived the strip.
+async function unlinkFontStringVariables(node) {
+  if (node.type !== 'TEXT') return 0;
+  var total = 0;
+  total += await unlinkFontFieldBinding(node, 'fontFamily');
+  total += await unlinkFontFieldBinding(node, 'fontStyle');
+  total += await unlinkFontFieldBinding(node, 'fontWeight');
+  return total;
 }
 
 
