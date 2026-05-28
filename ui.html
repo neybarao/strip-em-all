@@ -307,6 +307,7 @@
     /* Mode toggle */
     .mode-toggle {
       display: inline-flex;
+      align-self: flex-start;
       background: #161616;
       border: 1px solid rgba(255, 232, 0, 0.10);
       border-radius: 999px;
@@ -1133,43 +1134,7 @@
     }
 
 
-    // ── Delegated click handler for lint results (Tasks 7-10) ────────────────
-
-    dom.lintResults.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-action]');
-      if (!btn) return;
-      var row = btn.closest('.item-row');
-      var section = btn.closest('.lib-section');
-      var action = btn.getAttribute('data-action');
-
-      if (action === 'select' && row) {
-        var item = findItemFromRow(row);
-        if (item) parent.postMessage({ pluginMessage: { type: 'lint-select-layers', layerIds: item.layerIds } }, '*');
-        return;
-      }
-      if (action === 'detach' && row) {
-        var item = findItemFromRow(row);
-        if (!item) return;
-        parent.postMessage({ pluginMessage: { type: 'lint-detach', items: [{
-          kind: row.dataset.kind, id: item.id, layerIds: item.layerIds,
-        }] } }, '*');
-        return;
-      }
-      if (action === 'detach-library' && section) {
-        var libKey = section.dataset.libKey;
-        var lib = (window.__lintLastIndex.byLibrary || []).find(function (l) { return l.libKey === libKey; });
-        if (!lib) return;
-        var items = lib.styles.map(function (s) { return { kind: 'style', id: s.id, layerIds: s.layerIds }; })
-          .concat(lib.variables.map(function (v) { return { kind: 'variable', id: v.id, layerIds: v.layerIds }; }));
-        parent.postMessage({ pluginMessage: { type: 'lint-detach', items: items } }, '*');
-        return;
-      }
-      if (action === 'allow' && section) {
-        var libKey = section.dataset.libKey;
-        parent.postMessage({ pluginMessage: { type: 'lint-update-whitelist', libKey: libKey, allowed: btn.checked } }, '*');
-        return;
-      }
-    });
+    // findItemFromRow and escapeHtml are defined below (hoisted function declarations)
 
     function findItemFromRow(row) {
       var index = window.__lintLastIndex;
@@ -1235,6 +1200,43 @@
         dom.lintProgFill.style.width = '0%';
         dom.lintProgLabel.textContent = 'Scanning...';
         parent.postMessage({ pluginMessage: { type: 'lint-scan', scope: dom.lintScope } }, '*');
+      });
+
+      // Delegated click handler for lint results (must run after cacheDom sets dom.lintResults)
+      dom.lintResults.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        var row = btn.closest('.item-row');
+        var section = btn.closest('.lib-section');
+        var action = btn.getAttribute('data-action');
+
+        if (action === 'select' && row) {
+          var item = findItemFromRow(row);
+          if (item) parent.postMessage({ pluginMessage: { type: 'lint-select-layers', layerIds: item.layerIds } }, '*');
+          return;
+        }
+        if (action === 'detach' && row) {
+          var item2 = findItemFromRow(row);
+          if (!item2) return;
+          parent.postMessage({ pluginMessage: { type: 'lint-detach', items: [{
+            kind: row.dataset.kind, id: item2.id, layerIds: item2.layerIds,
+          }] } }, '*');
+          return;
+        }
+        if (action === 'detach-library' && section) {
+          var libKey = section.dataset.libKey;
+          var lib = (window.__lintLastIndex.byLibrary || []).find(function (l) { return l.libKey === libKey; });
+          if (!lib) return;
+          var items = lib.styles.map(function (s) { return { kind: 'style', id: s.id, layerIds: s.layerIds }; })
+            .concat(lib.variables.map(function (v) { return { kind: 'variable', id: v.id, layerIds: v.layerIds }; }));
+          parent.postMessage({ pluginMessage: { type: 'lint-detach', items: items } }, '*');
+          return;
+        }
+        if (action === 'allow' && section) {
+          var libKey2 = section.dataset.libKey;
+          parent.postMessage({ pluginMessage: { type: 'lint-update-whitelist', libKey: libKey2, allowed: btn.checked } }, '*');
+          return;
+        }
       });
 
       applyPreferencesToUI();
