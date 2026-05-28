@@ -639,6 +639,60 @@ async function unlinkFontStringVariables(node) {
 }
 
 
+// Removes a single style binding from a node by checking each style field.
+async function removeStyleFromNode(node, styleId) {
+  try { if (node.fillStyleId === styleId) await node.setFillStyleIdAsync(''); } catch (e) {}
+  try { if (node.backgroundStyleId === styleId) await node.setFillStyleIdAsync(''); } catch (e) {}
+  try { if (node.strokeStyleId === styleId) await node.setStrokeStyleIdAsync(''); } catch (e) {}
+  try { if (node.effectStyleId === styleId) await node.setEffectStyleIdAsync(''); } catch (e) {}
+  try { if (node.gridStyleId === styleId) await node.setGridStyleIdAsync(''); } catch (e) {}
+  try { if (node.type === 'TEXT' && node.textStyleId === styleId) await node.setTextStyleIdAsync(''); } catch (e) {}
+}
+
+// Removes a single variable binding from a node, walking flat boundVariables and gradient stops.
+async function removeVariableFromNode(node, variableId) {
+  var bound = node.boundVariables || {};
+  var keys = Object.keys(bound);
+  for (var i = 0; i < keys.length; i++) {
+    var b = bound[keys[i]];
+    if (!b) continue;
+    var ids = Array.isArray(b) ? b.map(function (x) { return x && x.id; }) : [b.id];
+    for (var j = 0; j < ids.length; j++) {
+      if (ids[j] === variableId) {
+        try { node.setBoundVariable(keys[i], null); } catch (e) {}
+      }
+    }
+  }
+  // Gradient stops in fills/strokes
+  var paintFields = ['fills', 'strokes'];
+  for (var p = 0; p < paintFields.length; p++) {
+    var paints = null;
+    try { paints = node[paintFields[p]]; } catch (e) {}
+    if (!paints || paints === figma.mixed || !paints.length) continue;
+    var nextPaints = JSON.parse(JSON.stringify(paints));
+    var mutated = false;
+    for (var q = 0; q < nextPaints.length; q++) {
+      var stops = nextPaints[q].gradientStops;
+      if (!stops) continue;
+      for (var r = 0; r < stops.length; r++) {
+        var bv = stops[r].boundVariables;
+        if (!bv) continue;
+        var sk = Object.keys(bv);
+        for (var s = 0; s < sk.length; s++) {
+          if (bv[sk[s]] && bv[sk[s]].id === variableId) {
+            delete bv[sk[s]];
+            mutated = true;
+          }
+        }
+      }
+    }
+    if (mutated) {
+      try { node[paintFields[p]] = nextPaints; } catch (e) {}
+    }
+  }
+}
+
+
 // === strip ===
 
 // Per-category style detection. Returns booleans for each Figma style type.
@@ -1124,6 +1178,34 @@ async function saveLintAllowed(allowedMap) {
   figma.root.setPluginData('lintAllowedLibs', JSON.stringify(keys));
 }
 
+async function runLintDetach(items) {
+  var skipped = 0;
+  var total = 0;
+  for (var i = 0; i < items.length; i++) total += items[i].layerIds.length;
+  var done = 0;
+  for (var i2 = 0; i2 < items.length; i2++) {
+    var it = items[i2];
+    for (var j = 0; j < it.layerIds.length; j++) {
+      var node = null;
+      try { node = await figma.getNodeByIdAsync(it.layerIds[j]); } catch (e) {}
+      if (!node) { skipped++; done++; continue; }
+      if (it.kind === 'style') {
+        await removeStyleFromNode(node, it.id);
+      } else if (it.kind === 'variable') {
+        await removeVariableFromNode(node, it.id);
+      }
+      done++;
+      if (done % 25 === 0) {
+        var pct = Math.floor((done / Math.max(1, total)) * 100);
+        figma.ui.postMessage({ type: 'lint-progress', message: 'Detaching... ' + pct + '%', percent: pct });
+      }
+    }
+  }
+  figma.ui.postMessage({ type: 'lint-detach-done', skipped: skipped });
+  // Re-scan so the UI reflects the new state.
+  if (__lintLastScope) await runLintScan(__lintLastScope);
+}
+
 async function lintSelectLayers(layerIds) {
   if (!layerIds || !layerIds.length) return;
   var nodes = [];
@@ -1186,6 +1268,12 @@ figma.ui.onmessage = function(msg) {
   }
   if (msg.type === 'lint-select-layers') {
     lintSelectLayers(msg.layerIds).catch(function (e) {
+      figma.ui.postMessage({ type: 'lint-error', message: String(e && e.message || e) });
+    });
+    return;
+  }
+  if (msg.type === 'lint-detach') {
+    runLintDetach(msg.items).catch(function (e) {
       figma.ui.postMessage({ type: 'lint-error', message: String(e && e.message || e) });
     });
     return;

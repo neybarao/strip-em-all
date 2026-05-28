@@ -1001,6 +1001,10 @@
         renderLintResults(msg.index);
         return;
       }
+      if (msg.type === 'lint-detach-done') {
+        // Result re-render arrives via the follow-up lint-result. Nothing else to do here for now.
+        return;
+      }
     };
 
     // ── Lint results rendering (Task 6) ──────────────────────────────────────
@@ -1109,7 +1113,15 @@
         if (item) parent.postMessage({ pluginMessage: { type: 'lint-select-layers', layerIds: item.layerIds } }, '*');
         return;
       }
-      // detach and allow wired in later tasks
+      if (action === 'detach' && row) {
+        var item = findItemFromRow(row);
+        if (!item) return;
+        parent.postMessage({ pluginMessage: { type: 'lint-detach', items: [{
+          kind: row.dataset.kind, id: item.id, layerIds: item.layerIds,
+        }] } }, '*');
+        return;
+      }
+      // allow wired in later tasks
     });
 
     function findItemFromRow(row) {
