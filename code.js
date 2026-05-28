@@ -5,7 +5,6 @@ figma.showUI(__html__, { width: 450, height: 700 });
 async function loadPreferences() {
   try {
     var prefs = await figma.clientStorage.getAsync('stripThatOut-preferences');
-    console.log('Loaded preferences:', prefs);
     return prefs || {
       unlinkStyles: true,
       unlinkTokens: true
@@ -22,7 +21,6 @@ async function loadPreferences() {
 async function savePreferences(prefs) {
   try {
     await figma.clientStorage.setAsync('stripThatOut-preferences', prefs);
-    console.log('Saved preferences:', prefs);
   } catch (e) {
     console.error('Error saving preferences:', e);
   }
@@ -117,7 +115,7 @@ function debouncedSendStats() {
   statsTimer = setTimeout(function() {
     statsTimer = null;
     sendStats();
-  }, 120);
+  }, 200);
 }
 
 figma.on('selectionchange', debouncedSendStats);
@@ -258,7 +256,6 @@ async function removeStyles(nodes, opts) {
     }
   }
 
-  console.log('Total styles removed: ' + removedCount);
   return removedCount;
 }
 
@@ -381,7 +378,6 @@ async function unlinkTextBoundVariables(node) {
           node.setBoundVariable('fontName', null);
           node.fontName = currentFontName;
           unlinkedCount++;
-          console.log('Unbound fontName from text:', node.name);
         }
       } catch (e) {
         console.error('Error unbinding fontName:', e);
@@ -424,7 +420,6 @@ async function unlinkAllBoundVariables(node) {
           node.setBoundVariable(prop, null);
           node[prop] = currentValue;
           unlinkedCount++;
-          console.log('Unbound ' + prop + ' from:', node.name);
         }
       } catch (e) {
         console.error('Error unbinding property ' + prop + ':', e.message);
@@ -520,7 +515,6 @@ async function unlinkTextSegmentVariables(node) {
       }
     }
     
-    console.log('Unbound ' + unlinkedCount + ' text segment variables from:', node.name);
     
   } catch (e) {
     console.error('Error unlinking text segment variables:', e);
@@ -654,7 +648,6 @@ async function unlinkTokens(nodes) {
             var newFills = cloneWithoutBoundVars(fills);
             node.fills = newFills;
             unlinkedCount++;
-            console.log('Unbound fills from:', node.name);
           }
         } catch (e) {
           console.error('Error processing fills:', e.message);
@@ -671,7 +664,6 @@ async function unlinkTokens(nodes) {
             var newStrokes = cloneWithoutBoundVars(strokes);
             node.strokes = newStrokes;
             unlinkedCount++;
-            console.log('Unbound strokes from:', node.name);
           }
         } catch (e) {
           console.error('Error processing strokes:', e.message);
@@ -688,7 +680,6 @@ async function unlinkTokens(nodes) {
             var newEffects = cloneWithoutBoundVars(effects);
             node.effects = newEffects;
             unlinkedCount++;
-            console.log('Unbound effects from:', node.name);
           }
         } catch (e) {
           console.error('Error processing effects:', e.message);
@@ -700,7 +691,6 @@ async function unlinkTokens(nodes) {
     }
   }
   
-  console.log('Total token bindings unlinked: ' + unlinkedCount);
   return unlinkedCount;
 }
 
@@ -750,7 +740,6 @@ async function processSelection(options) {
       }
     }
 
-    console.log('Processing ' + allNodes.length + ' nodes for styles and tokens...');
 
     // STEP 2: Remove styles BEFORE unlinking tokens (styles may contain token references)
     if (anyStyle) {

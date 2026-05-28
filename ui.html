@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     /* Dark only. Light mode was pulled for a11y (yellow + light bg contrast). */
     :root {
@@ -512,6 +512,42 @@
   <script>
     var STYLE_CATEGORIES = ['fill', 'stroke', 'effect', 'text', 'grid'];
 
+    /* DOM ref cache — populated by cacheDom() at bootstrap. The hot paths
+     * (drain, stats, CTA) used to hit document.getElementById on every
+     * progress message and selection change; caching cuts the lookups.
+     */
+    var dom = {};
+
+    function cacheDom() {
+      dom.toast = document.getElementById('toast');
+      dom.controls = document.getElementById('controls');
+      dom.masterStyles = document.getElementById('master-styles');
+      dom.masterVariables = document.getElementById('master-variables');
+      dom.stats = document.getElementById('stats-card');
+      dom.statsEmpty = document.getElementById('stats-empty');
+      dom.statsFilled = document.getElementById('stats-filled');
+      dom.statLayers = document.getElementById('stat-layers');
+      dom.statStylesTotal = document.getElementById('stat-styles-total');
+      dom.statVariables = document.getElementById('stat-variables');
+      dom.progress = document.getElementById('progress');
+      dom.progressLabel = document.getElementById('progress-label');
+      dom.progressFill = document.getElementById('progress-fill');
+      dom.stripBtn = document.getElementById('strip-btn');
+      dom.sub = {};
+      dom.cells = {};
+      for (var i = 0; i < STYLE_CATEGORIES.length; i++) {
+        var c = STYLE_CATEGORIES[i];
+        dom.sub[c] = document.getElementById('sub-' + c);
+        dom.cells[c] = document.getElementById(c === 'grid' ? 'stat-grid-cell' : 'stat-' + c);
+      }
+    }
+
+    /* Safe postMessage — guards against the parent iframe being torn down
+     * during navigation or plugin shutdown. */
+    function postToPlugin(msg) {
+      try { parent.postMessage({ pluginMessage: msg }, '*'); } catch (e) {}
+    }
+
     var pluginState = {
       styles: { fill: true, stroke: true, effect: true, text: true, grid: true },
       unlinkTokens: true,
@@ -527,7 +563,14 @@
     };
 
     var stripWatchdog = null;
-    var STRIP_TIMEOUT_MS = 60000;
+
+    /* Watchdog timeout scales with selection size. Text-style detach loads
+     * fonts which can be slow per layer, so a fixed 60s timeout falsely
+     * trips on huge selections. Base 60s + 10ms per layer, capped at 5min. */
+    function computeStripTimeout() {
+      var n = counterState.baseLayers || 0;
+      return Math.min(300000, 60000 + n * 10);
+    }
 
     function armStripWatchdog() {
       clearStripWatchdog();
@@ -538,7 +581,7 @@
         setProcessing(false);
         resetStripVisuals();
         showToast('Stripping took too long. Try a smaller selection.', 'error');
-      }, STRIP_TIMEOUT_MS);
+      }, computeStripTimeout());
     }
 
     function clearStripWatchdog() {
@@ -546,8 +589,8 @@
     }
 
     function resetStripVisuals() {
-      document.getElementById('stat-variables').textContent = counterState.baseVariables || 0;
-      document.getElementById('stat-styles-total').textContent = counterState.baseStylesTotal || 0;
+      dom.statVariables.textContent = counterState.baseVariables || 0;
+      dom.statStylesTotal.textContent = counterState.baseStylesTotal || 0;
       for (var i = 0; i < STYLE_CATEGORIES.length; i++) {
         var c = STYLE_CATEGORIES[i];
         setCellValue(c, counterState.baseStyles[c] || 0);
@@ -600,24 +643,22 @@
     function applyPreferencesToUI() {
       for (var i = 0; i < STYLE_CATEGORIES.length; i++) {
         var c = STYLE_CATEGORIES[i];
-        setSubSwitch(document.getElementById('sub-' + c), pluginState.styles[c]);
+        setSubSwitch(dom.sub[c], pluginState.styles[c]);
       }
-      setSwitchState(document.getElementById('master-styles'), stylesMasterState());
-      setSubSwitch(document.getElementById('master-variables'), pluginState.unlinkTokens);
+      setSwitchState(dom.masterStyles, stylesMasterState());
+      setSubSwitch(dom.masterVariables, pluginState.unlinkTokens);
       updateCtaState();
     }
 
     /* ───── Persistence ───── */
     function savePrefs() {
-      parent.postMessage({
-        pluginMessage: {
-          type: 'save-preferences',
-          preferences: {
-            styles: pluginState.styles,
-            unlinkTokens: pluginState.unlinkTokens
-          }
+      postToPlugin({
+        type: 'save-preferences',
+        preferences: {
+          styles: pluginState.styles,
+          unlinkTokens: pluginState.unlinkTokens
         }
-      }, '*');
+      });
     }
 
     /* ───── Toggle handlers ───── */
@@ -636,8 +677,8 @@
     function toggleStyleCategory(cat) {
       if (pluginState.isProcessing) return;
       pluginState.styles[cat] = !pluginState.styles[cat];
-      setSubSwitch(document.getElementById('sub-' + cat), pluginState.styles[cat]);
-      setSwitchState(document.getElementById('master-styles'), stylesMasterState());
+      setSubSwitch(dom.sub[cat], pluginState.styles[cat]);
+      setSwitchState(dom.masterStyles, stylesMasterState());
       savePrefs();
       updateCtaState();
     }
@@ -646,7 +687,7 @@
       if (ev) ev.stopPropagation();
       if (pluginState.isProcessing) return;
       pluginState.unlinkTokens = !pluginState.unlinkTokens;
-      setSubSwitch(document.getElementById('master-variables'), pluginState.unlinkTokens);
+      setSubSwitch(dom.masterVariables, pluginState.unlinkTokens);
       savePrefs();
       updateCtaState();
     }
@@ -658,7 +699,7 @@
     }
 
     function updateCtaState() {
-      var btn = document.getElementById('strip-btn');
+      var btn = dom.stripBtn;
       if (pluginState.isProcessing) {
         btn.disabled = true;
         btn.textContent = 'Stripping...';
@@ -681,21 +722,19 @@
     /* ───── Processing ───── */
     function setProcessing(isProcessing) {
       pluginState.isProcessing = isProcessing;
-      var controls = document.getElementById('controls');
-      if (isProcessing) controls.classList.add('disabled');
-      else controls.classList.remove('disabled');
+      if (isProcessing) dom.controls.classList.add('disabled');
+      else dom.controls.classList.remove('disabled');
       updateCtaState();
     }
 
     function updateProgress(message, percent) {
-      var container = document.getElementById('progress');
-      container.classList.add('show');
-      document.getElementById('progress-label').textContent = message;
-      document.getElementById('progress-fill').style.width = percent + '%';
+      dom.progress.classList.add('show');
+      dom.progressLabel.textContent = message;
+      dom.progressFill.style.width = percent + '%';
       var p = Math.max(0, Math.min(1, percent / 100));
       setCounterDrain(p);
     }
-    function hideProgress() { document.getElementById('progress').classList.remove('show'); }
+    function hideProgress() { dom.progress.classList.remove('show'); }
 
     function setCounterDrain(progress) {
       var p = Math.max(0, Math.min(1, progress || 0));
@@ -703,20 +742,19 @@
       var anyStyleOnNow = anyStyleOn();
       for (var i = 0; i < STYLE_CATEGORIES.length; i++) {
         var c = STYLE_CATEGORIES[i];
-        var cellId = c === 'grid' ? 'stat-grid-cell' : 'stat-' + c;
         var only = pluginState.styles[c]
           ? Math.round((counterState.baseStyles[c] || 0) * inv)
           : (counterState.baseStyles[c] || 0);
-        document.getElementById(cellId).textContent = only;
+        dom.cells[c].textContent = only;
       }
       var stylesTotal = anyStyleOnNow
         ? Math.round((counterState.baseStylesTotal || 0) * inv)
         : (counterState.baseStylesTotal || 0);
-      document.getElementById('stat-styles-total').textContent = stylesTotal;
+      dom.statStylesTotal.textContent = stylesTotal;
       var variables = pluginState.unlinkTokens
         ? Math.round((counterState.baseVariables || 0) * inv)
         : (counterState.baseVariables || 0);
-      document.getElementById('stat-variables').textContent = variables;
+      dom.statVariables.textContent = variables;
     }
 
     function strip() {
@@ -728,19 +766,16 @@
       armStripWatchdog();
       updateProgress('Starting...', 0);
 
-      parent.postMessage({
-        pluginMessage: {
-          type: 'strip',
-          styles: pluginState.styles,
-          unlinkTokens: pluginState.unlinkTokens
-        }
-      }, '*');
+      postToPlugin({
+        type: 'strip',
+        styles: pluginState.styles,
+        unlinkTokens: pluginState.unlinkTokens
+      });
     }
 
     /* ───── Stats ───── */
     function setCellValue(category, n) {
-      var cellId = category === 'grid' ? 'stat-grid-cell' : 'stat-' + category;
-      var num = document.getElementById(cellId);
+      var num = dom.cells[category];
       var cell = num.parentElement;
       num.textContent = n;
       if (n > 0) cell.classList.add('has');
@@ -748,12 +783,9 @@
     }
 
     function updateStats(stats) {
-      var empty = document.getElementById('stats-empty');
-      var filled = document.getElementById('stats-filled');
-
       if (!stats || stats.layers === 0) {
-        empty.hidden = false;
-        filled.hidden = true;
+        dom.statsEmpty.hidden = false;
+        dom.statsFilled.hidden = true;
         counterState.baseLayers = 0;
         counterState.baseStyles = { fill: 0, stroke: 0, effect: 0, text: 0, grid: 0 };
         counterState.baseStylesTotal = 0;
@@ -762,9 +794,9 @@
         return;
       }
 
-      document.getElementById('stat-layers').textContent = stats.layers;
-      document.getElementById('stat-styles-total').textContent = stats.stylesTotal || 0;
-      document.getElementById('stat-variables').textContent = stats.variables;
+      dom.statLayers.textContent = stats.layers;
+      dom.statStylesTotal.textContent = stats.stylesTotal || 0;
+      dom.statVariables.textContent = stats.variables;
 
       var styleCounts = stats.styles || {};
       for (var i = 0; i < STYLE_CATEGORIES.length; i++) {
@@ -772,8 +804,8 @@
         setCellValue(c, styleCounts[c] || 0);
       }
 
-      empty.hidden = true;
-      filled.hidden = false;
+      dom.statsEmpty.hidden = true;
+      dom.statsFilled.hidden = false;
 
       counterState.baseLayers = stats.layers;
       counterState.baseStyles = {
@@ -813,10 +845,9 @@
     }
 
     function showToast(text, type) {
-      var el = document.getElementById('toast');
-      el.textContent = text;
-      el.className = 'toast ' + type + ' show';
-      setTimeout(function() { el.classList.remove('show'); }, 3000);
+      dom.toast.textContent = text;
+      dom.toast.className = 'toast ' + type + ' show';
+      setTimeout(function() { dom.toast.classList.remove('show'); }, 3000);
     }
 
     /* ───── Message router ───── */
@@ -853,7 +884,10 @@
       }
     };
 
-    function bootstrap() { applyPreferencesToUI(); }
+    function bootstrap() {
+      cacheDom();
+      applyPreferencesToUI();
+    }
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', bootstrap);
     } else {
