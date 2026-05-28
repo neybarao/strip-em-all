@@ -1146,7 +1146,11 @@
         parent.postMessage({ pluginMessage: { type: 'lint-detach', items: items } }, '*');
         return;
       }
-      // allow wired in later tasks
+      if (action === 'allow' && section) {
+        var libKey = section.dataset.libKey;
+        parent.postMessage({ pluginMessage: { type: 'lint-update-whitelist', libKey: libKey, allowed: btn.checked } }, '*');
+        return;
+      }
     });
 
     function findItemFromRow(row) {

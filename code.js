@@ -1178,6 +1178,22 @@ async function saveLintAllowed(allowedMap) {
   figma.root.setPluginData('lintAllowedLibs', JSON.stringify(keys));
 }
 
+async function updateLintWhitelist(libKey, allowed) {
+  var current = await loadLintAllowed();
+  if (allowed) current[libKey] = true;
+  else delete current[libKey];
+  await saveLintAllowed(current);
+  if (__lintLastIndex) {
+    var subs = await getSubscribedVariableLibs();
+    for (var si = 0; si < subs.length; si++) {
+      var k = 'lib:' + subs[si].libraryName;
+      if (current[k] !== false) current[k] = true;
+    }
+    var payload = serializeLintIndex(__lintLastIndex, current);
+    figma.ui.postMessage({ type: 'lint-result', index: payload, scope: __lintLastScope });
+  }
+}
+
 async function runLintDetach(items) {
   var skipped = 0;
   var total = 0;
@@ -1274,6 +1290,12 @@ figma.ui.onmessage = function(msg) {
   }
   if (msg.type === 'lint-detach') {
     runLintDetach(msg.items).catch(function (e) {
+      figma.ui.postMessage({ type: 'lint-error', message: String(e && e.message || e) });
+    });
+    return;
+  }
+  if (msg.type === 'lint-update-whitelist') {
+    updateLintWhitelist(msg.libKey, msg.allowed).catch(function (e) {
       figma.ui.postMessage({ type: 'lint-error', message: String(e && e.message || e) });
     });
     return;
