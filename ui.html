@@ -249,7 +249,7 @@
       padding: 18px 22px;
       background: var(--surface);
       border-radius: var(--radius);
-      height: 180px;
+      height: 210px;
     }
 
     .stats-empty {
@@ -262,6 +262,13 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+    }
+
+    /* Tight grouping: the styles total + its per-category grid form a unit */
+    .stats-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
 
     [hidden] { display: none !important; }
@@ -285,11 +292,12 @@
     .stats.draining .stat strong,
     .stats.draining .stat-cell-num { color: var(--primary); }
 
-    /* 5-cell style breakdown grid */
+    /* 5-cell style breakdown grid, indented to align with the "with styles" label */
     .stat-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 4px;
+      margin-left: 30px; /* icon 18 + gap 12 */
     }
     .stat-cell {
       display: flex;
@@ -485,26 +493,34 @@
           <span><strong id="stat-layers">0</strong> layers</span>
         </div>
 
-        <div class="stat-grid" id="stat-grid">
-          <div class="stat-cell empty" data-cat="fill">
-            <div class="stat-cell-num" id="stat-fill">0</div>
-            <div class="stat-cell-label">Fill</div>
+        <div class="stats-group">
+          <div class="stat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+            </svg>
+            <span><strong id="stat-styles-total">0</strong> with styles</span>
           </div>
-          <div class="stat-cell empty" data-cat="stroke">
-            <div class="stat-cell-num" id="stat-stroke">0</div>
-            <div class="stat-cell-label">Stroke</div>
-          </div>
-          <div class="stat-cell empty" data-cat="effect">
-            <div class="stat-cell-num" id="stat-effect">0</div>
-            <div class="stat-cell-label">Effect</div>
-          </div>
-          <div class="stat-cell empty" data-cat="text">
-            <div class="stat-cell-num" id="stat-text">0</div>
-            <div class="stat-cell-label">Text</div>
-          </div>
-          <div class="stat-cell empty" data-cat="grid">
-            <div class="stat-cell-num" id="stat-grid-cell">0</div>
-            <div class="stat-cell-label">Grid</div>
+          <div class="stat-grid" id="stat-grid">
+            <div class="stat-cell empty" data-cat="fill">
+              <div class="stat-cell-num" id="stat-fill">0</div>
+              <div class="stat-cell-label">Fill</div>
+            </div>
+            <div class="stat-cell empty" data-cat="stroke">
+              <div class="stat-cell-num" id="stat-stroke">0</div>
+              <div class="stat-cell-label">Stroke</div>
+            </div>
+            <div class="stat-cell empty" data-cat="effect">
+              <div class="stat-cell-num" id="stat-effect">0</div>
+              <div class="stat-cell-label">Effect</div>
+            </div>
+            <div class="stat-cell empty" data-cat="text">
+              <div class="stat-cell-num" id="stat-text">0</div>
+              <div class="stat-cell-label">Text</div>
+            </div>
+            <div class="stat-cell empty" data-cat="grid">
+              <div class="stat-cell-num" id="stat-grid-cell">0</div>
+              <div class="stat-cell-label">Grid</div>
+            </div>
           </div>
         </div>
 
@@ -544,6 +560,7 @@
     var counterState = {
       baseLayers: 0,
       baseStyles: { fill: 0, stroke: 0, effect: 0, text: 0, grid: 0 },
+      baseStylesTotal: 0,
       baseVariables: 0
     };
 
@@ -741,6 +758,7 @@
       if (card) card.classList.remove('draining');
       // restore counters to actual baseline values
       document.getElementById('stat-variables').textContent = counterState.baseVariables || 0;
+      document.getElementById('stat-styles-total').textContent = counterState.baseStylesTotal || 0;
       for (var i = 0; i < STYLE_CATEGORIES.length; i++) {
         var c = STYLE_CATEGORIES[i];
         var cellId = c === 'grid' ? 'stat-grid-cell' : 'stat-' + c;
@@ -765,12 +783,17 @@
     function setCounterDrain(progress) {
       var p = Math.max(0, Math.min(1, progress || 0));
       var inv = 1 - p;
+      var anyStyleOnNow = anyStyleOn();
       for (var i = 0; i < STYLE_CATEGORIES.length; i++) {
         var c = STYLE_CATEGORIES[i];
         var cellId = c === 'grid' ? 'stat-grid-cell' : 'stat-' + c;
         var only = pluginState.styles[c] ? Math.round((counterState.baseStyles[c] || 0) * inv) : (counterState.baseStyles[c] || 0);
         document.getElementById(cellId).textContent = only;
       }
+      var stylesTotal = anyStyleOnNow
+        ? Math.round((counterState.baseStylesTotal || 0) * inv)
+        : (counterState.baseStylesTotal || 0);
+      document.getElementById('stat-styles-total').textContent = stylesTotal;
       var variables = pluginState.unlinkTokens
         ? Math.round((counterState.baseVariables || 0) * inv)
         : (counterState.baseVariables || 0);
@@ -819,12 +842,14 @@
         card.classList.remove('draining');
         counterState.baseLayers = 0;
         counterState.baseStyles = { fill: 0, stroke: 0, effect: 0, text: 0, grid: 0 };
+        counterState.baseStylesTotal = 0;
         counterState.baseVariables = 0;
         updateCtaState();
         return;
       }
 
       document.getElementById('stat-layers').textContent = stats.layers;
+      document.getElementById('stat-styles-total').textContent = stats.stylesTotal || 0;
       document.getElementById('stat-variables').textContent = stats.variables;
 
       var styleCounts = stats.styles || {};
@@ -845,6 +870,7 @@
         text: styleCounts.text || 0,
         grid: styleCounts.grid || 0
       };
+      counterState.baseStylesTotal = stats.stylesTotal || 0;
       counterState.baseVariables = stats.variables || 0;
 
       updateCtaState();
