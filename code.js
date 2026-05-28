@@ -1,5 +1,5 @@
 // Show the UI
-figma.showUI(__html__, { width: 450, height: 560 });
+figma.showUI(__html__, { width: 450, height: 700 });
 
 // Handle preferences storage using Figma's clientStorage
 async function loadPreferences() {
@@ -37,16 +37,24 @@ loadPreferences().then(function(prefs) {
   sendStats();
 });
 
-function hasStyleApplied(node) {
+// Per-category style detection. Returns booleans for each Figma style type.
+// backgroundStyleId is a PageNode property; folded into "fill" for stats since
+// Figma's API treats it as a fill style and PageNodes rarely appear in selection.
+function getStyleCategories(node) {
+  var cats = { fill: false, stroke: false, effect: false, text: false, grid: false };
   try {
-    if (node.fillStyleId) return true;
-    if (node.strokeStyleId) return true;
-    if (node.effectStyleId) return true;
-    if (node.gridStyleId) return true;
-    if (node.backgroundStyleId) return true;
-    if (node.type === 'TEXT' && node.textStyleId) return true;
+    if (node.fillStyleId) cats.fill = true;
+    if (node.backgroundStyleId) cats.fill = true;
+    if (node.strokeStyleId) cats.stroke = true;
+    if (node.effectStyleId) cats.effect = true;
+    if (node.gridStyleId) cats.grid = true;
+    if (node.type === 'TEXT' && node.textStyleId) cats.text = true;
   } catch (e) {}
-  return false;
+  return cats;
+}
+
+function hasAnyStyle(cats) {
+  return cats.fill || cats.stroke || cats.effect || cats.text || cats.grid;
 }
 
 function paintListHasVars(list) {
@@ -79,15 +87,27 @@ function sendStats() {
   for (var i = 0; i < selection.length; i++) {
     if (isNodeValid(selection[i])) collectAllNodes(selection[i], all);
   }
-  var styles = 0;
+  var styles = { fill: 0, stroke: 0, effect: 0, text: 0, grid: 0 };
+  var stylesTotal = 0;
   var variables = 0;
   for (var i = 0; i < all.length; i++) {
-    if (hasStyleApplied(all[i])) styles++;
+    var cats = getStyleCategories(all[i]);
+    if (cats.fill) styles.fill++;
+    if (cats.stroke) styles.stroke++;
+    if (cats.effect) styles.effect++;
+    if (cats.text) styles.text++;
+    if (cats.grid) styles.grid++;
+    if (hasAnyStyle(cats)) stylesTotal++;
     if (hasVariableApplied(all[i])) variables++;
   }
   figma.ui.postMessage({
     type: 'stats',
-    stats: { layers: all.length, styles: styles, variables: variables }
+    stats: {
+      layers: all.length,
+      styles: styles,
+      stylesTotal: stylesTotal,
+      variables: variables
+    }
   });
 }
 
@@ -134,57 +154,64 @@ function isNodeValid(node) {
   }
 }
 
-// Function to remove all styles from nodes
-async function removeStyles(nodes) {
+// Function to remove styles per category. opts is an object with booleans
+// for fill/stroke/effect/text/grid. Missing keys default to true (back-compat).
+async function removeStyles(nodes, opts) {
+  opts = opts || {};
+  var doFill = opts.fill !== false;
+  var doStroke = opts.stroke !== false;
+  var doEffect = opts.effect !== false;
+  var doText = opts.text !== false;
+  var doGrid = opts.grid !== false;
   var removedCount = 0;
-  
+
   for (var i = 0; i < nodes.length; i++) {
     var node = nodes[i];
-    
+
     if (!isNodeValid(node)) {
       continue;
     }
-    
-    try {
-      if ('fillStyleId' in node && node.fillStyleId) {
-        console.log('Removing fill style from:', node.name);
-        node.fillStyleId = '';
-        removedCount++;
+
+    if (doFill) {
+      try {
+        if ('fillStyleId' in node && node.fillStyleId && typeof node.setFillStyleIdAsync === 'function') {
+          await node.setFillStyleIdAsync('');
+          removedCount++;
+        }
+      } catch (e) {
+        console.error('Error removing fill style:', e);
       }
-    } catch (e) {
-      console.error('Error removing fill style:', e);
     }
 
-    try {
-      if ('strokeStyleId' in node && node.strokeStyleId) {
-        console.log('Removing stroke style from:', node.name);
-        node.strokeStyleId = '';
-        removedCount++;
+    if (doStroke) {
+      try {
+        if ('strokeStyleId' in node && node.strokeStyleId && typeof node.setStrokeStyleIdAsync === 'function') {
+          await node.setStrokeStyleIdAsync('');
+          removedCount++;
+        }
+      } catch (e) {
+        console.error('Error removing stroke style:', e);
       }
-    } catch (e) {
-      console.error('Error removing stroke style:', e);
     }
 
-    try {
-      if ('effectStyleId' in node && node.effectStyleId) {
-        console.log('Removing effect style from:', node.name);
-        node.effectStyleId = '';
-        removedCount++;
+    if (doEffect) {
+      try {
+        if ('effectStyleId' in node && node.effectStyleId && typeof node.setEffectStyleIdAsync === 'function') {
+          await node.setEffectStyleIdAsync('');
+          removedCount++;
+        }
+      } catch (e) {
+        console.error('Error removing effect style:', e);
       }
-    } catch (e) {
-      console.error('Error removing effect style:', e);
     }
 
-    try {
-      if (node.type === 'TEXT') {
-        if ('textStyleId' in node && node.textStyleId) {
-          console.log('Removing text style from:', node.name, 'styleId:', node.textStyleId);
-          
+    if (doText) {
+      try {
+        if (node.type === 'TEXT' && 'textStyleId' in node && node.textStyleId) {
           // Load font before modifying text properties
           if (node.fontName !== figma.mixed) {
             await figma.loadFontAsync(node.fontName);
           } else {
-            // Handle mixed fonts - load all unique fonts in the text
             var length = node.characters.length;
             var loadedFonts = {};
             for (var j = 0; j < length; j++) {
@@ -198,38 +225,39 @@ async function removeStyles(nodes) {
               } catch (e) {}
             }
           }
-          
-          // Use async method to remove text style
           await node.setTextStyleIdAsync('');
           removedCount++;
-          console.log('Successfully removed text style from:', node.name);
         }
+      } catch (e) {
+        console.error('Error removing text style:', e.message);
       }
-    } catch (e) {
-      console.error('Error removing text style:', e.message);
     }
 
-    try {
-      if ('gridStyleId' in node && node.gridStyleId) {
-        console.log('Removing grid style from:', node.name);
-        node.gridStyleId = '';
-        removedCount++;
+    if (doGrid) {
+      try {
+        if ('gridStyleId' in node && node.gridStyleId && typeof node.setGridStyleIdAsync === 'function') {
+          await node.setGridStyleIdAsync('');
+          removedCount++;
+        }
+      } catch (e) {
+        console.error('Error removing grid style:', e);
       }
-    } catch (e) {
-      console.error('Error removing grid style:', e);
     }
 
-    try {
-      if ('backgroundStyleId' in node && node.backgroundStyleId) {
-        console.log('Removing background style from:', node.name);
-        node.backgroundStyleId = '';
-        removedCount++;
+    // backgroundStyleId is a PageNode property folded into the fill category
+    // (Figma's setFillStyleIdAsync covers both per docs).
+    if (doFill) {
+      try {
+        if ('backgroundStyleId' in node && node.backgroundStyleId && typeof node.setFillStyleIdAsync === 'function') {
+          await node.setFillStyleIdAsync('');
+          removedCount++;
+        }
+      } catch (e) {
+        console.error('Error removing background style:', e);
       }
-    } catch (e) {
-      console.error('Error removing background style:', e);
     }
   }
-  
+
   console.log('Total styles removed: ' + removedCount);
   return removedCount;
 }
@@ -696,8 +724,11 @@ async function processSelection(options) {
       percent: 5
     });
 
+    var styleOpts = options.styles || {};
+    var anyStyle = styleOpts.fill || styleOpts.stroke || styleOpts.effect || styleOpts.text || styleOpts.grid;
+
     var totalSteps = 0;
-    if (options.unlinkStyles) totalSteps++;
+    if (anyStyle) totalSteps++;
     if (options.unlinkTokens) totalSteps++;
 
     var currentStep = 0;
@@ -722,14 +753,14 @@ async function processSelection(options) {
     console.log('Processing ' + allNodes.length + ' nodes for styles and tokens...');
 
     // STEP 2: Remove styles BEFORE unlinking tokens (styles may contain token references)
-    if (options.unlinkStyles) {
+    if (anyStyle) {
       currentStep++;
       figma.ui.postMessage({
         type: 'progress',
         message: 'Detaching styles...',
         percent: 50 + ((currentStep - 1) / totalSteps) * 25
       });
-      await removeStyles(allNodes);
+      await removeStyles(allNodes, styleOpts);
       
       // Re-collect nodes after removing styles
       allNodes = [];
@@ -780,7 +811,14 @@ async function processSelection(options) {
 figma.ui.onmessage = function(msg) {
   if (msg.type === 'strip') {
     processSelection({
-      unlinkStyles: msg.unlinkStyles,
+      styles: msg.styles || {
+        // Back-compat shim if UI sends old shape
+        fill: !!msg.unlinkStyles,
+        stroke: !!msg.unlinkStyles,
+        effect: !!msg.unlinkStyles,
+        text: !!msg.unlinkStyles,
+        grid: !!msg.unlinkStyles
+      },
       unlinkTokens: msg.unlinkTokens
     });
   } else if (msg.type === 'save-preferences') {
