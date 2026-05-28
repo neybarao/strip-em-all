@@ -1135,6 +1135,12 @@ async function resolveLintRoots(scope) {
 var __lintLastIndex = null;
 var __lintLastScope = null;
 
+figma.on('selectionchange', function () {
+  if (__lintLastScope === 'selection') {
+    figma.ui.postMessage({ type: 'lint-selection-changed' });
+  }
+});
+
 async function runLintScan(scope) {
   resetSubscribedLibsCache();
   figma.ui.postMessage({ type: 'lint-progress', message: 'Preparing scope...', percent: 0 });

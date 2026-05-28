@@ -416,6 +416,7 @@
     .progress-slot.visible { opacity: 1; }
     .error { color: #ff6b6b; font: 400 12px/1.4 'Inter'; margin: 8px 0; }
     .small { font-size: 12px; }
+    .chip { background: rgba(255,232,0,0.12); color: #ffe800; font: 600 12px/1 'Inter'; padding: 6px 10px; border-radius: 999px; display: inline-block; margin-bottom: 8px; cursor: pointer; }
     .lib-section { background: #161616; border: 1px solid rgba(255,232,0,0.10); border-radius: 8px; padding: 12px; margin: 8px 0; }
     .lib-header { font: 600 14px/1.2 'Inter'; color: #fff; cursor: pointer; list-style: none; }
     .lib-header::-webkit-details-marker { display: none; }
@@ -1003,7 +1004,24 @@
         return;
       }
       if (msg.type === 'lint-detach-done') {
-        // Result re-render arrives via the follow-up lint-result. Nothing else to do here for now.
+        if (msg.skipped && msg.skipped > 0) {
+          var note = document.createElement('div');
+          note.className = 'muted small';
+          note.textContent = msg.skipped + ' items skipped: no longer present.';
+          dom.lintResults.appendChild(note);
+        }
+        return;
+      }
+      if (msg.type === 'lint-selection-changed') {
+        var chip = document.getElementById('lint-sel-changed-chip');
+        if (!chip) {
+          chip = document.createElement('div');
+          chip.id = 'lint-sel-changed-chip';
+          chip.className = 'chip';
+          chip.textContent = 'Selection changed — re-scan?';
+          dom.lintResults.insertBefore(chip, dom.lintResults.firstChild);
+          chip.addEventListener('click', function () { dom.lintScanBtn.click(); });
+        }
         return;
       }
     };
