@@ -1055,6 +1055,76 @@ function serializeLintIndex(libs, allowedKeys) {
 }
 
 
+async function resolveLintRoots(scope) {
+  if (scope === 'selection') {
+    var sel = figma.currentPage.selection;
+    return sel && sel.length ? sel.slice() : [];
+  }
+  if (scope === 'page') {
+    return figma.currentPage.children.slice();
+  }
+  if (scope === 'file') {
+    await figma.loadAllPagesAsync();
+    var pages = figma.root.children;
+    var roots = [];
+    for (var i = 0; i < pages.length; i++) {
+      for (var j = 0; j < pages[i].children.length; j++) {
+        roots.push(pages[i].children[j]);
+      }
+    }
+    return roots;
+  }
+  return [];
+}
+
+// Cached index from the latest scan, so whitelist toggles re-filter without re-walking.
+var __lintLastIndex = null;
+var __lintLastScope = null;
+
+async function runLintScan(scope) {
+  resetSubscribedLibsCache();
+  figma.ui.postMessage({ type: 'lint-progress', message: 'Preparing scope...', percent: 0 });
+  var roots = await resolveLintRoots(scope);
+  if (!roots.length && scope === 'selection') {
+    figma.ui.postMessage({ type: 'lint-error', message: 'Select layers first.' });
+    return;
+  }
+  figma.ui.postMessage({ type: 'lint-progress', message: 'Scanning...', percent: 10 });
+  var libs = await buildLintIndex(roots, function (p) {
+    var pct = 10 + Math.min(80, Math.floor((p.visited / Math.max(1, p.total)) * 80));
+    figma.ui.postMessage({ type: 'lint-progress', message: 'Scanning... ' + pct + '%', percent: pct });
+  });
+  __lintLastIndex = libs;
+  __lintLastScope = scope;
+  var allowedKeys = await loadLintAllowed();
+  var subs = await getSubscribedVariableLibs();
+  for (var si = 0; si < subs.length; si++) {
+    var k = 'lib:' + subs[si].libraryName;
+    if (allowedKeys[k] !== false) allowedKeys[k] = true;
+  }
+  var payload = serializeLintIndex(libs, allowedKeys);
+  figma.ui.postMessage({ type: 'lint-result', index: payload, scope: scope });
+}
+
+async function loadLintAllowed() {
+  try {
+    var raw = figma.root.getPluginData('lintAllowedLibs');
+    if (!raw) return { local: true };
+    var arr = JSON.parse(raw);
+    var map = { local: true };
+    for (var i = 0; i < arr.length; i++) map[arr[i]] = true;
+    return map;
+  } catch (e) {
+    return { local: true };
+  }
+}
+
+async function saveLintAllowed(allowedMap) {
+  var keys = Object.keys(allowedMap).filter(function (k) { return allowedMap[k] === true; });
+  figma.root.setPluginData('lintAllowedLibs', JSON.stringify(keys));
+}
+
+
 // === router ===
 
 // Listen for messages from the UI
@@ -1082,5 +1152,11 @@ figma.ui.onmessage = function(msg) {
     });
   } else if (msg.type === 'cancel') {
     figma.closePlugin();
+  }
+  if (msg.type === 'lint-scan') {
+    runLintScan(msg.scope).catch(function (e) {
+      figma.ui.postMessage({ type: 'lint-error', message: String(e && e.message || e) });
+    });
+    return;
   }
 };
