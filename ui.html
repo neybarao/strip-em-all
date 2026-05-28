@@ -416,6 +416,20 @@
     .progress-slot.visible { opacity: 1; }
     .error { color: #ff6b6b; font: 400 12px/1.4 'Inter'; margin: 8px 0; }
     .small { font-size: 12px; }
+    .lib-section { background: #161616; border: 1px solid rgba(255,232,0,0.10); border-radius: 8px; padding: 12px; margin: 8px 0; }
+    .lib-header { font: 600 14px/1.2 'Inter'; color: #fff; cursor: pointer; list-style: none; }
+    .lib-header::-webkit-details-marker { display: none; }
+    .lib-body { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .lib-controls { display: flex; justify-content: space-between; align-items: center; }
+    .lib-allow { color: #9e9e9e; font: 400 12px/1 'Inter'; display: inline-flex; gap: 6px; align-items: center; }
+    .group-title { color: #9e9e9e; font: 600 12px/1 'Inter'; margin-top: 4px; }
+    .item-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; padding: 6px 0; }
+    .item-name { color: #fff; font: 400 13px/1.2 'Inter'; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item-meta { color: #9e9e9e; font: 400 12px/1 'Inter'; }
+    .item-actions { display: inline-flex; gap: 4px; }
+    .ghost-btn { font: 600 11px/1 'Inter'; color: #ffe800; background: transparent; border: 1px solid rgba(255,232,0,0.30); padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+    .ghost-btn:hover { background: rgba(255,232,0,0.06); }
+    .card.empty { color: #9e9e9e; }
   </style>
 </head>
 <body>
@@ -983,12 +997,108 @@
       if (msg.type === 'lint-result') {
         dom.lintProgSlot.classList.remove('visible');
         dom.lintResults.hidden = false;
-        // Rendering implemented in Task 6 — placeholder for now:
-        dom.lintResults.textContent = 'Scan complete: ' + msg.index.summary.intruderLibraries + ' intruder library(ies).';
         window.__lintLastIndex = msg.index;
+        renderLintResults(msg.index);
         return;
       }
     };
+
+    // ── Lint results rendering (Task 6) ──────────────────────────────────────
+
+    function renderLintResults(index) {
+      var root = dom.lintResults;
+      root.innerHTML = '';
+
+      // Summary
+      var summary = document.createElement('div');
+      summary.className = 'card';
+      summary.innerHTML =
+        '<div class="card-title">Found ' + index.summary.intruderLibraries + ' intruder ' +
+        (index.summary.intruderLibraries === 1 ? 'library' : 'libraries') + '</div>' +
+        '<div class="muted small">' + index.summary.affectedLayers + ' layers affected · ' +
+        index.summary.intruderStyles + ' styles, ' + index.summary.intruderVariables + ' variables</div>';
+      root.appendChild(summary);
+
+      if (!index.byLibrary.length || index.summary.intruderLibraries === 0) {
+        var empty = document.createElement('div');
+        empty.className = 'card empty';
+        empty.textContent = 'No intruders found in this scope.';
+        root.appendChild(empty);
+        return;
+      }
+
+      // One section per non-allowed library
+      for (var i = 0; i < index.byLibrary.length; i++) {
+        var lib = index.byLibrary[i];
+        if (lib.allowed) continue;
+        root.appendChild(renderLibrarySection(lib));
+      }
+    }
+
+    function renderLibrarySection(lib) {
+      var section = document.createElement('details');
+      section.className = 'lib-section';
+      section.open = true;
+      section.dataset.libKey = lib.libKey;
+
+      var summary = document.createElement('summary');
+      summary.className = 'lib-header';
+      summary.textContent = lib.name;
+      section.appendChild(summary);
+
+      var body = document.createElement('div');
+      body.className = 'lib-body';
+
+      // Allowed toggle (per-library detach wired in Task 9)
+      var controls = document.createElement('div');
+      controls.className = 'lib-controls';
+      controls.innerHTML =
+        '<label class="lib-allow"><input type="checkbox" data-action="allow"> Mark as allowed</label>';
+      body.appendChild(controls);
+
+      if (lib.styles.length) {
+        var sh = document.createElement('div');
+        sh.className = 'group-title';
+        sh.textContent = 'Styles (' + lib.styles.length + ')';
+        body.appendChild(sh);
+        for (var i = 0; i < lib.styles.length; i++) {
+          body.appendChild(renderItemRow('style', lib.styles[i]));
+        }
+      }
+      if (lib.variables.length) {
+        var vh = document.createElement('div');
+        vh.className = 'group-title';
+        vh.textContent = 'Variables (' + lib.variables.length + ')';
+        body.appendChild(vh);
+        for (var j = 0; j < lib.variables.length; j++) {
+          body.appendChild(renderItemRow('variable', lib.variables[j]));
+        }
+      }
+
+      section.appendChild(body);
+      return section;
+    }
+
+    function renderItemRow(kind, item) {
+      var row = document.createElement('div');
+      row.className = 'item-row';
+      row.dataset.kind = kind;
+      row.dataset.id = item.id;
+      row.innerHTML =
+        '<div class="item-name">' + escapeHtml(item.name || '(unnamed)') + '</div>' +
+        '<div class="item-meta">' + item.layerIds.length + ' layers</div>' +
+        '<div class="item-actions">' +
+          '<button class="ghost-btn" data-action="select">select</button>' +
+          '<button class="ghost-btn" data-action="detach">detach</button>' +
+        '</div>';
+      return row;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
 
     function bootstrap() {
       cacheDom();
