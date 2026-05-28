@@ -120,6 +120,80 @@ figma.on('selectionchange', debouncedSendStats);
 
 // === origin ===
 
+var __subscribedLibsCache = null;
+
+async function getSubscribedVariableLibs() {
+  if (__subscribedLibsCache) return __subscribedLibsCache;
+  try {
+    var cols = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+    __subscribedLibsCache = cols || [];
+  } catch (e) {
+    console.error('getAvailableLibraryVariableCollectionsAsync failed:', e);
+    __subscribedLibsCache = [];
+  }
+  return __subscribedLibsCache;
+}
+
+function resetSubscribedLibsCache() { __subscribedLibsCache = null; }
+
+// Returns { libKey, libName, isLocal, isSubscribed } or null if the style is gone.
+async function classifyStyleOrigin(styleId) {
+  if (!styleId || styleId === figma.mixed) return null;
+  var style;
+  try { style = await figma.getStyleByIdAsync(styleId); } catch (e) { return null; }
+  if (!style) return null;
+  if (!style.remote) {
+    return { libKey: 'local', libName: 'Local', isLocal: true, isSubscribed: true };
+  }
+  var name = style.name || '';
+  var prefix = name.indexOf('/') >= 0 ? name.split('/')[0].trim() : '';
+  var subscribed = await getSubscribedVariableLibs();
+  var match = prefix ? subscribed.find(function (c) { return c.libraryName === prefix; }) : null;
+  if (match) {
+    return { libKey: 'lib:' + prefix, libName: prefix, isLocal: false, isSubscribed: true };
+  }
+  if (prefix) {
+    return { libKey: 'lib:' + prefix, libName: prefix, isLocal: false, isSubscribed: false };
+  }
+  var keyTail = (style.key || '').slice(0, 6);
+  return {
+    libKey: 'unknown:' + keyTail,
+    libName: 'Unknown library (key: ' + keyTail + ')',
+    isLocal: false,
+    isSubscribed: false,
+  };
+}
+
+async function classifyVariableOrigin(variableId) {
+  if (!variableId) return null;
+  var v;
+  try { v = await figma.variables.getVariableByIdAsync(variableId); } catch (e) { return null; }
+  if (!v) return null;
+  var col;
+  try { col = await figma.variables.getVariableCollectionByIdAsync(v.variableCollectionId); } catch (e) { col = null; }
+  if (!col) return null;
+  if (!col.remote) {
+    return { libKey: 'local', libName: 'Local', isLocal: true, isSubscribed: true };
+  }
+  var subscribed = await getSubscribedVariableLibs();
+  var match = subscribed.find(function (c) { return c.key === col.key; });
+  if (match && match.libraryName) {
+    return {
+      libKey: 'lib:' + match.libraryName,
+      libName: match.libraryName,
+      isLocal: false,
+      isSubscribed: true,
+    };
+  }
+  var fallback = col.name || ('Unknown library (key: ' + (col.key || '').slice(0, 6) + ')');
+  return {
+    libKey: 'lib:' + fallback,
+    libName: fallback,
+    isLocal: false,
+    isSubscribed: false,
+  };
+}
+
 
 // === detach helpers ===
 
