@@ -1,3 +1,5 @@
+// === bootstrap ===
+
 // Show the UI
 figma.showUI(__html__, { width: 450, height: 700 });
 
@@ -35,44 +37,39 @@ loadPreferences().then(function(prefs) {
   sendStats();
 });
 
-// Per-category style detection. Returns booleans for each Figma style type.
-// backgroundStyleId is a PageNode property; folded into "fill" for stats since
-// Figma's API treats it as a fill style and PageNodes rarely appear in selection.
-function getStyleCategories(node) {
-  var cats = { fill: false, stroke: false, effect: false, text: false, grid: false };
+
+// === walker ===
+
+// Function to collect all nodes recursively before processing
+function collectAllNodes(node, nodes) {
+  if (!nodes) nodes = [];
+
+  // Check if node still exists and is valid
   try {
-    if (node.fillStyleId) cats.fill = true;
-    if (node.backgroundStyleId) cats.fill = true;
-    if (node.strokeStyleId) cats.stroke = true;
-    if (node.effectStyleId) cats.effect = true;
-    if (node.gridStyleId) cats.grid = true;
-    if (node.type === 'TEXT' && node.textStyleId) cats.text = true;
-  } catch (e) {}
-  return cats;
-}
+    if (node.removed || !node.parent) {
+      return nodes;
+    }
+  } catch (e) {
+    return nodes;
+  }
 
-function hasAnyStyle(cats) {
-  return cats.fill || cats.stroke || cats.effect || cats.text || cats.grid;
-}
-
-function paintListHasVars(list) {
-  if (!Array.isArray(list)) return false;
-  for (var i = 0; i < list.length; i++) {
-    if (list[i] && list[i].boundVariables && Object.keys(list[i].boundVariables).length > 0) {
-      return true;
+  nodes.push(node);
+  if ('children' in node) {
+    var children = node.children.slice();
+    for (var i = 0; i < children.length; i++) {
+      collectAllNodes(children[i], nodes);
     }
   }
-  return false;
+  return nodes;
 }
 
-function hasVariableApplied(node) {
+// Function to check if node is still valid
+function isNodeValid(node) {
   try {
-    if (node.boundVariables && Object.keys(node.boundVariables).length > 0) return true;
-    if ('fills' in node && node.fills !== figma.mixed && paintListHasVars(node.fills)) return true;
-    if ('strokes' in node && node.strokes !== figma.mixed && paintListHasVars(node.strokes)) return true;
-    if ('effects' in node && node.effects !== figma.mixed && paintListHasVars(node.effects)) return true;
-  } catch (e) {}
-  return false;
+    return node && !node.removed && node.parent !== null;
+  } catch (e) {
+    return false;
+  }
 }
 
 function sendStats() {
@@ -120,36 +117,58 @@ function debouncedSendStats() {
 
 figma.on('selectionchange', debouncedSendStats);
 
-// Function to collect all nodes recursively before processing
-function collectAllNodes(node, nodes) {
-  if (!nodes) nodes = [];
-  
-  // Check if node still exists and is valid
-  try {
-    if (node.removed || !node.parent) {
-      return nodes;
-    }
-  } catch (e) {
-    return nodes;
-  }
-  
-  nodes.push(node);
-  if ('children' in node) {
-    var children = node.children.slice();
-    for (var i = 0; i < children.length; i++) {
-      collectAllNodes(children[i], nodes);
-    }
-  }
-  return nodes;
-}
 
-// Function to check if node is still valid
-function isNodeValid(node) {
-  try {
-    return node && !node.removed && node.parent !== null;
-  } catch (e) {
+// === origin ===
+
+
+// === detach helpers ===
+
+// Recursively detect if obj (or any nested array/object) contains a
+// non-empty boundVariables map. Required for gradient paints where the
+// variable binding lives on gradientStops[k].boundVariables, not on the
+// paint object itself.
+function hasNestedBoundVars(obj) {
+  if (obj === null || typeof obj !== 'object') return false;
+  if (Array.isArray(obj)) {
+    for (var i = 0; i < obj.length; i++) {
+      if (hasNestedBoundVars(obj[i])) return true;
+    }
     return false;
   }
+  if (obj.boundVariables && typeof obj.boundVariables === 'object') {
+    for (var k in obj.boundVariables) {
+      if (obj.boundVariables.hasOwnProperty(k)) return true;
+    }
+  }
+  for (var key in obj) {
+    if (obj.hasOwnProperty(key) && key !== 'boundVariables') {
+      if (hasNestedBoundVars(obj[key])) return true;
+    }
+  }
+  return false;
+}
+
+// Function to deep clone and remove boundVariables
+function cloneWithoutBoundVars(obj) {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    var arr = [];
+    for (var i = 0; i < obj.length; i++) {
+      arr[i] = cloneWithoutBoundVars(obj[i]);
+    }
+    return arr;
+  }
+
+  var clone = {};
+  for (var key in obj) {
+    if (obj.hasOwnProperty(key) && key !== 'boundVariables') {
+      clone[key] = cloneWithoutBoundVars(obj[key]);
+    }
+  }
+  return clone;
 }
 
 // Function to remove styles per category. opts is an object with booleans
@@ -246,55 +265,6 @@ async function removeStyles(nodes, opts) {
   return removedCount;
 }
 
-
-
-// Recursively detect if obj (or any nested array/object) contains a
-// non-empty boundVariables map. Required for gradient paints where the
-// variable binding lives on gradientStops[k].boundVariables, not on the
-// paint object itself.
-function hasNestedBoundVars(obj) {
-  if (obj === null || typeof obj !== 'object') return false;
-  if (Array.isArray(obj)) {
-    for (var i = 0; i < obj.length; i++) {
-      if (hasNestedBoundVars(obj[i])) return true;
-    }
-    return false;
-  }
-  if (obj.boundVariables && typeof obj.boundVariables === 'object') {
-    for (var k in obj.boundVariables) {
-      if (obj.boundVariables.hasOwnProperty(k)) return true;
-    }
-  }
-  for (var key in obj) {
-    if (obj.hasOwnProperty(key) && key !== 'boundVariables') {
-      if (hasNestedBoundVars(obj[key])) return true;
-    }
-  }
-  return false;
-}
-
-// Function to deep clone and remove boundVariables
-function cloneWithoutBoundVars(obj) {
-  if (obj === null || typeof obj !== 'object') {
-    return obj;
-  }
-  
-  if (Array.isArray(obj)) {
-    var arr = [];
-    for (var i = 0; i < obj.length; i++) {
-      arr[i] = cloneWithoutBoundVars(obj[i]);
-    }
-    return arr;
-  }
-  
-  var clone = {};
-  for (var key in obj) {
-    if (obj.hasOwnProperty(key) && key !== 'boundVariables') {
-      clone[key] = cloneWithoutBoundVars(obj[key]);
-    }
-  }
-  return clone;
-}
 
 // Ensure every font used by a text node is loaded. Required before any
 // write to font-dependent properties (fontSize, lineHeight, fills, etc.).
@@ -595,6 +565,48 @@ async function unlinkFontStringVariables(node) {
 }
 
 
+// === strip ===
+
+// Per-category style detection. Returns booleans for each Figma style type.
+// backgroundStyleId is a PageNode property; folded into "fill" for stats since
+// Figma's API treats it as a fill style and PageNodes rarely appear in selection.
+function getStyleCategories(node) {
+  var cats = { fill: false, stroke: false, effect: false, text: false, grid: false };
+  try {
+    if (node.fillStyleId) cats.fill = true;
+    if (node.backgroundStyleId) cats.fill = true;
+    if (node.strokeStyleId) cats.stroke = true;
+    if (node.effectStyleId) cats.effect = true;
+    if (node.gridStyleId) cats.grid = true;
+    if (node.type === 'TEXT' && node.textStyleId) cats.text = true;
+  } catch (e) {}
+  return cats;
+}
+
+function hasAnyStyle(cats) {
+  return cats.fill || cats.stroke || cats.effect || cats.text || cats.grid;
+}
+
+function paintListHasVars(list) {
+  if (!Array.isArray(list)) return false;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i] && list[i].boundVariables && Object.keys(list[i].boundVariables).length > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasVariableApplied(node) {
+  try {
+    if (node.boundVariables && Object.keys(node.boundVariables).length > 0) return true;
+    if ('fills' in node && node.fills !== figma.mixed && paintListHasVars(node.fills)) return true;
+    if ('strokes' in node && node.strokes !== figma.mixed && paintListHasVars(node.strokes)) return true;
+    if ('effects' in node && node.effects !== figma.mixed && paintListHasVars(node.effects)) return true;
+  } catch (e) {}
+  return false;
+}
+
 // Function to unlink variable bindings (tokens)
 async function unlinkTokens(nodes) {
   var unlinkedCount = 0;
@@ -782,6 +794,11 @@ async function processSelection(options) {
   }
 }
 
+
+// === lint ===
+
+
+// === router ===
 
 // Listen for messages from the UI
 figma.ui.onmessage = function(msg) {
