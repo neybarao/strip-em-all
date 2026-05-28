@@ -206,23 +206,10 @@ async function removeStyles(nodes, opts) {
     if (doText) {
       try {
         if (node.type === 'TEXT' && 'textStyleId' in node && node.textStyleId) {
-          // Load font before modifying text properties
-          if (node.fontName !== figma.mixed) {
-            await figma.loadFontAsync(node.fontName);
-          } else {
-            var length = node.characters.length;
-            var loadedFonts = {};
-            for (var j = 0; j < length; j++) {
-              try {
-                var fontName = node.getRangeFontName(j, j + 1);
-                var fontKey = fontName.family + '-' + fontName.style;
-                if (!loadedFonts[fontKey]) {
-                  await figma.loadFontAsync(fontName);
-                  loadedFonts[fontKey] = true;
-                }
-              } catch (e) {}
-            }
-          }
+          // setTextStyleIdAsync('') only drops the style reference. It does
+          // not rewrite text content, so it does NOT require the font to be
+          // loaded. A pre-load here would throw on missing fonts and the
+          // text style would never detach — exactly what we want to avoid.
           await node.setTextStyleIdAsync('');
           removedCount++;
         }
