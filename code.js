@@ -1124,6 +1124,31 @@ async function saveLintAllowed(allowedMap) {
   figma.root.setPluginData('lintAllowedLibs', JSON.stringify(keys));
 }
 
+async function lintSelectLayers(layerIds) {
+  if (!layerIds || !layerIds.length) return;
+  var nodes = [];
+  for (var i = 0; i < layerIds.length; i++) {
+    try {
+      var n = await figma.getNodeByIdAsync(layerIds[i]);
+      if (n && n.type !== 'PAGE' && n.type !== 'DOCUMENT') nodes.push(n);
+    } catch (e) {}
+  }
+  if (!nodes.length) return;
+  // Switch to the page that contains the first node, if needed.
+  var first = nodes[0];
+  var page = first;
+  while (page && page.type !== 'PAGE') page = page.parent;
+  if (page && page !== figma.currentPage) {
+    await figma.setCurrentPageAsync(page);
+  }
+  // Filter to nodes that live on the current page.
+  var onPage = nodes.filter(function (n) {
+    var p = n; while (p && p.type !== 'PAGE') p = p.parent; return p === figma.currentPage;
+  });
+  figma.currentPage.selection = onPage;
+  figma.viewport.scrollAndZoomIntoView(onPage);
+}
+
 
 // === router ===
 
@@ -1155,6 +1180,12 @@ figma.ui.onmessage = function(msg) {
   }
   if (msg.type === 'lint-scan') {
     runLintScan(msg.scope).catch(function (e) {
+      figma.ui.postMessage({ type: 'lint-error', message: String(e && e.message || e) });
+    });
+    return;
+  }
+  if (msg.type === 'lint-select-layers') {
+    lintSelectLayers(msg.layerIds).catch(function (e) {
       figma.ui.postMessage({ type: 'lint-error', message: String(e && e.message || e) });
     });
     return;

@@ -1094,6 +1094,36 @@
       return row;
     }
 
+
+    // ── Delegated click handler for lint results (Tasks 7-10) ────────────────
+
+    dom.lintResults.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      var row = btn.closest('.item-row');
+      var section = btn.closest('.lib-section');
+      var action = btn.getAttribute('data-action');
+
+      if (action === 'select' && row) {
+        var item = findItemFromRow(row);
+        if (item) parent.postMessage({ pluginMessage: { type: 'lint-select-layers', layerIds: item.layerIds } }, '*');
+        return;
+      }
+      // detach and allow wired in later tasks
+    });
+
+    function findItemFromRow(row) {
+      var index = window.__lintLastIndex;
+      if (!index) return null;
+      var libKey = row.closest('.lib-section').dataset.libKey;
+      var kind = row.dataset.kind;
+      var id = row.dataset.id;
+      var lib = index.byLibrary.find(function (l) { return l.libKey === libKey; });
+      if (!lib) return null;
+      var arr = kind === 'style' ? lib.styles : lib.variables;
+      return arr.find(function (x) { return x.id === id; });
+    }
+
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, function (c) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
