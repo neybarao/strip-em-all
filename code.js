@@ -1201,7 +1201,7 @@ async function updateLintWhitelist(libKey, allowed) {
     var subs = await getSubscribedVariableLibs();
     for (var si = 0; si < subs.length; si++) {
       var k = 'lib:' + subs[si].libraryName;
-      if (current[k] !== false) current[k] = true;
+      if (!(k in current)) current[k] = true;
     }
     var payload = serializeLintIndex(__lintLastIndex, current);
     figma.ui.postMessage({ type: 'lint-result', index: payload, scope: __lintLastScope });
