@@ -618,7 +618,7 @@
           <button class="seg-btn" data-scope="page" role="radio" aria-checked="false">Page</button>
           <button class="seg-btn" data-scope="file" role="radio" aria-checked="false">File</button>
         </div>
-        <p class="muted small">Default: local file + subscribed libraries. Refine after scanning.</p>
+        <p class="muted small">Local styles and subscribed libraries are allowed by default.</p>
       </div>
 
       <div class="progress-slot" id="lint-progress-slot">
@@ -1051,7 +1051,7 @@
         if (msg.skipped && msg.skipped > 0) {
           var note = document.createElement('div');
           note.className = 'muted small';
-          note.textContent = msg.skipped + ' items skipped: no longer present.';
+          note.textContent = msg.skipped + ' ' + (msg.skipped === 1 ? 'layer' : 'layers') + ' no longer exist, skipped.';
           dom.lintResults.appendChild(note);
         }
         return;
@@ -1062,7 +1062,7 @@
           chip = document.createElement('div');
           chip.id = 'lint-sel-changed-chip';
           chip.className = 'chip';
-          chip.textContent = 'Selection changed — re-scan?';
+          chip.textContent = 'Selection changed: re-scan?';
           dom.lintResults.insertBefore(chip, dom.lintResults.firstChild);
           chip.addEventListener('click', function () { dom.lintScanBtn.click(); });
         }
@@ -1125,9 +1125,9 @@
       var summary = document.createElement('summary');
       summary.className = 'lib-header';
       var badge = lib.isLocal ? '' :
-        lib.isSubscribed ? '<span class="lib-badge subscribed">Subscribed library</span>' :
-        lib.libKey.indexOf('unknown:') === 0 ? '<span class="lib-badge unknown">Unknown library</span>' :
-        '<span class="lib-badge external">External library</span>';
+        lib.isSubscribed ? '<span class="lib-badge subscribed">Subscribed</span>' :
+        lib.libKey.indexOf('unknown:') === 0 ? '<span class="lib-badge unknown">Unknown source</span>' :
+        '<span class="lib-badge external">Not subscribed</span>';
       summary.innerHTML = escapeHtml(lib.name) + (badge ? ' ' + badge : '');
       section.appendChild(summary);
 
@@ -1138,7 +1138,7 @@
       var controls = document.createElement('div');
       controls.className = 'lib-controls';
       controls.innerHTML =
-        '<label class="lib-allow"><input type="checkbox" data-action="allow"> Mark as allowed</label>' +
+        '<label class="lib-allow"><input type="checkbox" data-action="allow"> Allow this library</label>' +
         '<button class="ghost-btn" data-action="detach-library">Detach all from this library</button>';
       body.appendChild(controls);
 
@@ -1172,10 +1172,10 @@
       row.dataset.id = item.id;
       row.innerHTML =
         '<div class="item-name">' + escapeHtml(item.name || '(unnamed)') + '</div>' +
-        '<div class="item-meta">' + item.layerIds.length + ' layers</div>' +
+        '<div class="item-meta">' + item.layerIds.length + ' ' + (item.layerIds.length === 1 ? 'layer' : 'layers') + '</div>' +
         '<div class="item-actions">' +
-          '<button class="ghost-btn" data-action="select">select</button>' +
-          '<button class="ghost-btn" data-action="detach">detach</button>' +
+          '<button class="ghost-btn" data-action="select">Select</button>' +
+          '<button class="ghost-btn" data-action="detach">Detach</button>' +
         '</div>';
       return row;
     }

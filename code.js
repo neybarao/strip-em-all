@@ -1154,7 +1154,7 @@ async function runLintScan(scope) {
   }
   var roots = await resolveLintRoots(scope);
   if (!roots.length && scope === 'selection') {
-    figma.ui.postMessage({ type: 'lint-error', message: 'Select layers first.' });
+    figma.ui.postMessage({ type: 'lint-error', message: 'Select at least one layer to scan.' });
     return;
   }
   figma.ui.postMessage({ type: 'lint-progress', message: 'Scanning...', percent: 10 });
