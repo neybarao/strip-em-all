@@ -1138,6 +1138,14 @@ var __lintLastScope = null;
 async function runLintScan(scope) {
   resetSubscribedLibsCache();
   figma.ui.postMessage({ type: 'lint-progress', message: 'Preparing scope...', percent: 0 });
+  if (scope === 'file') {
+    var pageCount = figma.root.children.length;
+    if (pageCount > 20) {
+      figma.ui.postMessage({ type: 'lint-progress', message: 'Loading ' + pageCount + ' pages... this may take a moment.', percent: 2 });
+    } else {
+      figma.ui.postMessage({ type: 'lint-progress', message: 'Loading all pages...', percent: 2 });
+    }
+  }
   var roots = await resolveLintRoots(scope);
   if (!roots.length && scope === 'selection') {
     figma.ui.postMessage({ type: 'lint-error', message: 'Select layers first.' });
