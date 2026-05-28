@@ -284,6 +284,31 @@ function cloneWithoutBoundVars(obj) {
   return clone;
 }
 
+// Ensure every font used by a text node is loaded. Required before any
+// write to font-dependent properties (fontSize, lineHeight, fills, etc.).
+// Handles figma.mixed by loading each unique font across the character
+// ranges. Failure to handle this caused unlinkTextBoundVariables to abort
+// silently on mixed-font text whose styles had just been detached.
+async function ensureTextFontsLoaded(node) {
+  if (!node || node.type !== 'TEXT') return;
+  if (node.fontName !== figma.mixed) {
+    try { await figma.loadFontAsync(node.fontName); } catch (e) {}
+    return;
+  }
+  var loaded = {};
+  var length = node.characters.length;
+  for (var i = 0; i < length; i++) {
+    try {
+      var fn = node.getRangeFontName(i, i + 1);
+      var key = fn.family + '|' + fn.style;
+      if (!loaded[key]) {
+        await figma.loadFontAsync(fn);
+        loaded[key] = true;
+      }
+    } catch (e) {}
+  }
+}
+
 // Function to unlink text-specific bound variables
 async function unlinkTextBoundVariables(node) {
   var unlinkedCount = 0;
@@ -299,61 +324,23 @@ async function unlinkTextBoundVariables(node) {
       return unlinkedCount;
     }
     
-    // Handle fontSize
-    if (textBoundVars.fontSize) {
+    // Handle fontSize / lineHeight / letterSpacing / paragraphSpacing.
+    // ensureTextFontsLoaded covers figma.mixed by walking the character
+    // ranges; otherwise these writes fail and the binding stays attached.
+    var simpleProps = ['fontSize', 'lineHeight', 'letterSpacing', 'paragraphSpacing'];
+    for (var sp = 0; sp < simpleProps.length; sp++) {
+      var prop = simpleProps[sp];
+      if (!textBoundVars[prop]) continue;
       try {
-        await figma.loadFontAsync(node.fontName);
-        var currentSize = node.fontSize;
-        if (typeof currentSize === 'number') {
-          node.setBoundVariable('fontSize', null);
-          node.fontSize = currentSize;
-          unlinkedCount++;
-          console.log('Unbound fontSize from text:', node.name);
-        }
-      } catch (e) {
-        console.error('Error unbinding fontSize:', e);
-      }
-    }
-    
-    // Handle lineHeight
-    if (textBoundVars.lineHeight) {
-      try {
-        await figma.loadFontAsync(node.fontName);
-        var currentLineHeight = node.lineHeight;
-        node.setBoundVariable('lineHeight', null);
-        node.lineHeight = currentLineHeight;
+        await ensureTextFontsLoaded(node);
+        var current = node[prop];
+        if (current === figma.mixed || current === undefined) continue;
+        if (prop === 'fontSize' && typeof current !== 'number') continue;
+        node.setBoundVariable(prop, null);
+        node[prop] = current;
         unlinkedCount++;
-        console.log('Unbound lineHeight from text:', node.name);
       } catch (e) {
-        console.error('Error unbinding lineHeight:', e);
-      }
-    }
-    
-    // Handle letterSpacing
-    if (textBoundVars.letterSpacing) {
-      try {
-        await figma.loadFontAsync(node.fontName);
-        var currentLetterSpacing = node.letterSpacing;
-        node.setBoundVariable('letterSpacing', null);
-        node.letterSpacing = currentLetterSpacing;
-        unlinkedCount++;
-        console.log('Unbound letterSpacing from text:', node.name);
-      } catch (e) {
-        console.error('Error unbinding letterSpacing:', e);
-      }
-    }
-    
-    // Handle paragraphSpacing
-    if (textBoundVars.paragraphSpacing) {
-      try {
-        await figma.loadFontAsync(node.fontName);
-        var currentParagraphSpacing = node.paragraphSpacing;
-        node.setBoundVariable('paragraphSpacing', null);
-        node.paragraphSpacing = currentParagraphSpacing;
-        unlinkedCount++;
-        console.log('Unbound paragraphSpacing from text:', node.name);
-      } catch (e) {
-        console.error('Error unbinding paragraphSpacing:', e);
+        console.error('Error unbinding ' + prop + ':', e.message);
       }
     }
     
