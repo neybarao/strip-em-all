@@ -45,6 +45,19 @@ Sandbox → UI:
 - `success { message }`
 - `error { message }`
 
+UI → sandbox (Lint mode):
+- `lint-scan { scope: 'selection' | 'page' | 'file' }`
+- `lint-update-whitelist { libKey, allowed }`
+- `lint-select-layers { layerIds }`
+- `lint-detach { items: [{ kind, id, layerIds }] }`
+
+Sandbox → UI (Lint mode):
+- `lint-progress { message, percent }`
+- `lint-result { index, scope }`
+- `lint-detach-done { skipped }`
+- `lint-selection-changed`
+- `lint-error { message }`
+
 ## Plugin API constraints learned (don't relitigate)
 
 - Under `documentAccess: "dynamic-page"`, direct assignment to
@@ -71,6 +84,14 @@ Sandbox → UI:
 - Plugin iframe does not resolve relative paths to local files. Assets
   must be inlined or fetched over `networkAccess.allowedDomains`.
 
+- Remote-style library name is not exposed reliably. Fall back to the
+  name prefix and `style.key` (`Unknown library (key: abc123)`).
+- Remote-variable library name comes from
+  `figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync()`
+  matched by `collection.key`.
+- `figma.loadAllPagesAsync()` is required before walking the whole
+  file under `documentAccess: "dynamic-page"`.
+
 ## Architecture decisions
 
 - **Two-pass detach**: styles first, then variables. After style detach,
@@ -92,6 +113,17 @@ Sandbox → UI:
 - **Dark only.** Light mode was tried and pulled — `#ffe800` accent on
   light surfaces had bad contrast and the plugin is a single-purpose
   utility, not worth the polish to fix.
+
+- **Lint mode**: second top-level mode toggled in the header. Shares
+  walker, detach helpers, and design system with Strip. Builds a
+  `byLibrary` index of every style and variable in the chosen scope
+  (Selection / Page / File), classifies origin by the existing
+  subscribed-library API for variables and a name-prefix heuristic for
+  styles (with `Unknown library (key: ...)` fallback). Allow-list is
+  per file via `figma.root.setPluginData('lintAllowedLibs', ...)`.
+- **Re-classify cache**: scan keeps the full index in memory; toggling
+  `Mark as allowed` only re-applies the allow-list filter on the
+  cached index — no re-walk.
 
 ## Design system
 
