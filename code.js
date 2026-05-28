@@ -871,6 +871,189 @@ async function processSelection(options) {
 
 // === lint ===
 
+// Iterates nodes, classifies every style and variable found, returns an index.
+// Does NOT filter by allowed yet — the caller applies the allow-list separately.
+async function buildLintIndex(roots, onProgress) {
+  var libs = {}; // libKey -> { name, isLocal, isSubscribed, styles: {}, variables: {} }
+
+  function getLib(origin) {
+    if (!libs[origin.libKey]) {
+      libs[origin.libKey] = {
+        name: origin.libName,
+        isLocal: origin.isLocal,
+        isSubscribed: origin.isSubscribed,
+        styles: {},
+        variables: {},
+      };
+    }
+    return libs[origin.libKey];
+  }
+
+  function recordStyle(origin, styleId, styleType, nodeId) {
+    var lib = getLib(origin);
+    if (!lib.styles[styleId]) {
+      lib.styles[styleId] = { id: styleId, name: '', type: styleType, layerIds: {} };
+    }
+    lib.styles[styleId].layerIds[nodeId] = true;
+  }
+
+  function recordVariable(origin, varId, nodeId) {
+    var lib = getLib(origin);
+    if (!lib.variables[varId]) {
+      lib.variables[varId] = { id: varId, name: '', collection: '', layerIds: {} };
+    }
+    lib.variables[varId].layerIds[nodeId] = true;
+  }
+
+  var queue = roots.slice();
+  var visited = 0;
+  var total = roots.length; // dynamic; updated as we descend
+
+  while (queue.length) {
+    var node = queue.shift();
+    visited++;
+    if (visited % 200 === 0 && onProgress) {
+      onProgress({ visited: visited, total: total });
+    }
+
+    // Styles
+    var styleFields = [
+      ['fillStyleId', 'fill'],
+      ['strokeStyleId', 'stroke'],
+      ['effectStyleId', 'effect'],
+      ['gridStyleId', 'grid'],
+      ['textStyleId', 'text'],
+      ['backgroundStyleId', 'fill'],
+    ];
+    for (var i = 0; i < styleFields.length; i++) {
+      var field = styleFields[i][0];
+      var kind = styleFields[i][1];
+      var sid = null;
+      try { sid = node[field]; } catch (e) {}
+      if (!sid || sid === figma.mixed) continue;
+      var origin = await classifyStyleOrigin(sid);
+      if (origin) recordStyle(origin, sid, kind, node.id);
+    }
+
+    // Variables: boundVariables flat + nested in paints/strokes
+    var bound = node.boundVariables || {};
+    var keys = Object.keys(bound);
+    for (var k = 0; k < keys.length; k++) {
+      var b = bound[keys[k]];
+      if (!b) continue;
+      var ids = Array.isArray(b) ? b.map(function (x) { return x && x.id; }) : [b.id];
+      for (var j = 0; j < ids.length; j++) {
+        if (!ids[j]) continue;
+        var vo = await classifyVariableOrigin(ids[j]);
+        if (vo) recordVariable(vo, ids[j], node.id);
+      }
+    }
+
+    // Gradient stops (paints in fills/strokes carry variable bindings inside stops)
+    var paintFields = ['fills', 'strokes'];
+    for (var p = 0; p < paintFields.length; p++) {
+      var paints = null;
+      try { paints = node[paintFields[p]]; } catch (e) {}
+      if (!paints || paints === figma.mixed || !paints.length) continue;
+      for (var q = 0; q < paints.length; q++) {
+        var paint = paints[q];
+        if (!paint || !paint.gradientStops) continue;
+        for (var r = 0; r < paint.gradientStops.length; r++) {
+          var stop = paint.gradientStops[r];
+          var bv = stop && stop.boundVariables;
+          if (!bv) continue;
+          var sk = Object.keys(bv);
+          for (var s = 0; s < sk.length; s++) {
+            var sid2 = bv[sk[s]] && bv[sk[s]].id;
+            if (!sid2) continue;
+            var so = await classifyVariableOrigin(sid2);
+            if (so) recordVariable(so, sid2, node.id);
+          }
+        }
+      }
+    }
+
+    if ('children' in node && node.children) {
+      for (var c = 0; c < node.children.length; c++) {
+        queue.push(node.children[c]);
+        total++;
+      }
+    }
+  }
+
+  // Hydrate names now (one pass, dedup'd via the map structure)
+  var libKeys = Object.keys(libs);
+  for (var lk = 0; lk < libKeys.length; lk++) {
+    var lib = libs[libKeys[lk]];
+    var sids = Object.keys(lib.styles);
+    for (var si = 0; si < sids.length; si++) {
+      try {
+        var s = await figma.getStyleByIdAsync(sids[si]);
+        if (s) lib.styles[sids[si]].name = s.name;
+      } catch (e) {}
+    }
+    var vids = Object.keys(lib.variables);
+    for (var vi = 0; vi < vids.length; vi++) {
+      try {
+        var vv = await figma.variables.getVariableByIdAsync(vids[vi]);
+        if (vv) {
+          lib.variables[vids[vi]].name = vv.name;
+          try {
+            var c2 = await figma.variables.getVariableCollectionByIdAsync(vv.variableCollectionId);
+            lib.variables[vids[vi]].collection = c2 ? c2.name : '';
+          } catch (e) {}
+        }
+      } catch (e) {}
+    }
+  }
+
+  return libs;
+}
+
+function serializeLintIndex(libs, allowedKeys) {
+  var byLibrary = [];
+  var summary = { intruderLibraries: 0, affectedLayers: 0, intruderStyles: 0, intruderVariables: 0 };
+  var seenLayer = {};
+  var libKeys = Object.keys(libs);
+  for (var i = 0; i < libKeys.length; i++) {
+    var k = libKeys[i];
+    var lib = libs[k];
+    var allowed = allowedKeys[k] === true || lib.isLocal === true;
+    var styles = Object.keys(lib.styles).map(function (sid) {
+      var s = lib.styles[sid];
+      var lids = Object.keys(s.layerIds);
+      return { id: sid, name: s.name, type: s.type, layerIds: lids };
+    });
+    var variables = Object.keys(lib.variables).map(function (vid) {
+      var v = lib.variables[vid];
+      var lids = Object.keys(v.layerIds);
+      return { id: vid, name: v.name, collection: v.collection, layerIds: lids };
+    });
+    byLibrary.push({
+      libKey: k,
+      name: lib.name,
+      isLocal: lib.isLocal,
+      isSubscribed: lib.isSubscribed,
+      allowed: allowed,
+      styles: styles,
+      variables: variables,
+    });
+    if (!allowed) {
+      summary.intruderLibraries++;
+      summary.intruderStyles += styles.length;
+      summary.intruderVariables += variables.length;
+      for (var s2 = 0; s2 < styles.length; s2++) {
+        for (var l2 = 0; l2 < styles[s2].layerIds.length; l2++) seenLayer[styles[s2].layerIds[l2]] = true;
+      }
+      for (var v2 = 0; v2 < variables.length; v2++) {
+        for (var l3 = 0; l3 < variables[v2].layerIds.length; l3++) seenLayer[variables[v2].layerIds[l3]] = true;
+      }
+    }
+  }
+  summary.affectedLayers = Object.keys(seenLayer).length;
+  return { byLibrary: byLibrary, summary: summary };
+}
+
 
 // === router ===
 
