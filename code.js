@@ -1,5 +1,5 @@
 // Show the UI
-figma.showUI(__html__, { width: 450, height: 660 });
+figma.showUI(__html__, { width: 450, height: 700 });
 
 // Handle preferences storage using Figma's clientStorage
 async function loadPreferences() {
