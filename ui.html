@@ -1200,7 +1200,7 @@
       var badge = lib.isLocal ? '' :
         lib.isSubscribed ? '<span class="lib-badge subscribed">Subscribed</span>' :
         lib.libKey.indexOf('unknown:') === 0 ? '<span class="lib-badge unknown">Unknown source</span>' :
-        '<span class="lib-badge external">Not subscribed</span>';
+        '<span class="lib-badge external">External library</span>';
       summary.innerHTML = escapeHtml(lib.name) + (badge ? ' ' + badge : '');
       section.appendChild(summary);
 
@@ -1283,7 +1283,7 @@
           var lib = idx.byLibrary[i];
           if (lib.allowed) continue;
           for (var s = 0; s < lib.styles.length; s++) {
-            items.push({ kind: 'style', id: lib.styles[s].id, layerIds: lib.styles[s].layerIds });
+            items.push({ kind: 'style', id: lib.styles[s].id, layerIds: lib.styles[s].layerIds, styleType: lib.styles[s].type });
           }
           for (var v = 0; v < lib.variables.length; v++) {
             items.push({ kind: 'variable', id: lib.variables[v].id, layerIds: lib.variables[v].layerIds });
@@ -1341,7 +1341,7 @@
           var item2 = findItemFromRow(row);
           if (!item2) return;
           parent.postMessage({ pluginMessage: { type: 'lint-detach', items: [{
-            kind: row.dataset.kind, id: item2.id, layerIds: item2.layerIds,
+            kind: row.dataset.kind, id: item2.id, layerIds: item2.layerIds, styleType: item2.type,
           }] } }, '*');
           return;
         }
@@ -1349,7 +1349,7 @@
           var libKey = section.dataset.libKey;
           var lib = (window.__lintLastIndex.byLibrary || []).find(function (l) { return l.libKey === libKey; });
           if (!lib) return;
-          var items = lib.styles.map(function (s) { return { kind: 'style', id: s.id, layerIds: s.layerIds }; })
+          var items = lib.styles.map(function (s) { return { kind: 'style', id: s.id, layerIds: s.layerIds, styleType: s.type }; })
             .concat(lib.variables.map(function (v) { return { kind: 'variable', id: v.id, layerIds: v.layerIds }; }));
           parent.postMessage({ pluginMessage: { type: 'lint-detach', items: items } }, '*');
           return;

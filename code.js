@@ -640,13 +640,30 @@ async function unlinkFontStringVariables(node) {
 
 
 // Removes a single style binding from a node by checking each style field.
-async function removeStyleFromNode(node, styleId) {
-  try { if (node.fillStyleId === styleId) await node.setFillStyleIdAsync(''); } catch (e) {}
-  try { if (node.backgroundStyleId === styleId) await node.setFillStyleIdAsync(''); } catch (e) {}
-  try { if (node.strokeStyleId === styleId) await node.setStrokeStyleIdAsync(''); } catch (e) {}
-  try { if (node.effectStyleId === styleId) await node.setEffectStyleIdAsync(''); } catch (e) {}
-  try { if (node.gridStyleId === styleId) await node.setGridStyleIdAsync(''); } catch (e) {}
-  try { if (node.type === 'TEXT' && node.textStyleId === styleId) await node.setTextStyleIdAsync(''); } catch (e) {}
+// styleType: 'fill' | 'stroke' | 'effect' | 'grid' | 'text'
+// Use styleType to call the right setter directly instead of comparing IDs,
+// which can fail silently for remote styles in dynamic-page mode.
+async function removeStyleFromNode(node, styleId, styleType) {
+  if (styleType === 'fill') {
+    // setFillStyleIdAsync covers backgroundStyleId too per Figma docs
+    try { await node.setFillStyleIdAsync(''); } catch (e) {}
+  } else if (styleType === 'stroke') {
+    try { await node.setStrokeStyleIdAsync(''); } catch (e) {}
+  } else if (styleType === 'effect') {
+    try { await node.setEffectStyleIdAsync(''); } catch (e) {}
+  } else if (styleType === 'grid') {
+    try { await node.setGridStyleIdAsync(''); } catch (e) {}
+  } else if (styleType === 'text') {
+    if (node.type === 'TEXT') { try { await node.setTextStyleIdAsync(''); } catch (e) {} }
+  } else {
+    // Fallback: try all fields
+    try { if (node.fillStyleId === styleId) await node.setFillStyleIdAsync(''); } catch (e) {}
+    try { if (node.backgroundStyleId === styleId) await node.setFillStyleIdAsync(''); } catch (e) {}
+    try { if (node.strokeStyleId === styleId) await node.setStrokeStyleIdAsync(''); } catch (e) {}
+    try { if (node.effectStyleId === styleId) await node.setEffectStyleIdAsync(''); } catch (e) {}
+    try { if (node.gridStyleId === styleId) await node.setGridStyleIdAsync(''); } catch (e) {}
+    if (node.type === 'TEXT') { try { if (node.textStyleId === styleId) await node.setTextStyleIdAsync(''); } catch (e) {} }
+  }
 }
 
 // Removes a single variable binding from a node, walking flat boundVariables and gradient stops.
@@ -1220,7 +1237,7 @@ async function runLintDetach(items) {
       try { node = await figma.getNodeByIdAsync(it.layerIds[j]); } catch (e) {}
       if (!node) { skipped++; done++; continue; }
       if (it.kind === 'style') {
-        await removeStyleFromNode(node, it.id);
+        await removeStyleFromNode(node, it.id, it.styleType);
       } else if (it.kind === 'variable') {
         await removeVariableFromNode(node, it.id);
       }
